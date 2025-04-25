@@ -1,0 +1,438 @@
+import { 
+  users, 
+  User, 
+  InsertUser, 
+  vehicles, 
+  Vehicle, 
+  InsertVehicle, 
+  locations, 
+  Location, 
+  InsertLocation, 
+  rides, 
+  Ride, 
+  InsertRide,
+  settings,
+  Setting,
+  InsertSetting
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, gte, lte, inArray, sql, desc, asc, or } from "drizzle-orm";
+import { generatePasswordHash, verifyPassword } from "./auth";
+
+// Storage interface
+export interface IStorage {
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
+  getNearbyDrivers(latitude: number, longitude: number, radius: number, vehicleType: string): Promise<User[]>;
+  
+  // Vehicle operations
+  getVehicle(id: number): Promise<Vehicle | undefined>;
+  getVehiclesByDriverId(driverId: number): Promise<Vehicle[]>;
+  createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
+  updateVehicle(id: number, vehicleData: Partial<InsertVehicle>): Promise<Vehicle | undefined>;
+  
+  // Location operations
+  getLocation(id: number): Promise<Location | undefined>;
+  getLocationsByUserId(userId: number): Promise<Location[]>;
+  createLocation(location: InsertLocation): Promise<Location>;
+  updateLocation(id: number, locationData: Partial<InsertLocation>): Promise<Location | undefined>;
+  
+  // Ride operations
+  getRide(id: number): Promise<Ride | undefined>;
+  getRidesByRiderId(riderId: number): Promise<Ride[]>;
+  getRidesByDriverId(driverId: number): Promise<Ride[]>;
+  getActiveRideByRiderId(riderId: number): Promise<Ride | undefined>;
+  getActiveRideByDriverId(driverId: number): Promise<Ride | undefined>;
+  createRide(ride: InsertRide): Promise<Ride>;
+  updateRide(id: number, rideData: Partial<InsertRide>): Promise<Ride | undefined>;
+  acceptRide(id: number, driverId: number, vehicleId: number): Promise<Ride | undefined>;
+  startRide(id: number): Promise<Ride | undefined>;
+  completeRide(id: number, actualFare: number): Promise<Ride | undefined>;
+  cancelRide(id: number, reason?: string): Promise<Ride | undefined>;
+  rateRide(id: number, rating: number, isDriverRating: boolean): Promise<Ride | undefined>;
+  
+  // Stripe related operations
+  updateUserStripeInfo(userId: number, stripeInfo: { stripeCustomerId?: string, stripeConnectedAccountId?: string }): Promise<User | undefined>;
+  updateRidePaymentInfo(rideId: number, paymentInfo: { paymentIntentId: string, paymentStatus: string }): Promise<Ride | undefined>;
+  
+  // Settings operations
+  getSetting(key: string): Promise<Setting | undefined>;
+  updateSetting(key: string, value: any): Promise<Setting | undefined>;
+}
+
+// Database Storage implementation
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    // Hash the password before storing
+    const hashedPassword = await generatePasswordHash(userData.password);
+    
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        password: hashedPassword
+      })
+      .returning();
+    
+    return user;
+  }
+
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+    // If password is being updated, hash it
+    if (userData.password) {
+      userData.password = await generatePasswordHash(userData.password);
+    }
+    
+    const [updatedUser] = await db
+      .update(users)
+      .set(userData)
+      .where(eq(users.id, id))
+      .returning();
+    
+    return updatedUser;
+  }
+
+  async getNearbyDrivers(latitude: number, longitude: number, radius: number, vehicleType: string): Promise<User[]> {
+    // This is a simplified version. In a real-world scenario, you might use PostGIS for more accurate geospatial queries
+    // Here we're assuming we have active drivers with vehicles of the requested type
+    
+    // First get all drivers with active vehicles matching the vehicle type
+    const result = await db
+      .select()
+      .from(users)
+      .innerJoin(vehicles, and(
+        eq(users.id, vehicles.driverId),
+        eq(vehicles.type, vehicleType),
+        eq(vehicles.isActive, true)
+      ))
+      .where(eq(users.role, 'driver'));
+    
+    // Filter by "proximity" - in a real app, you'd use proper geospatial calculations
+    return result.map(({users: driver}) => driver);
+  }
+
+  // Vehicle operations
+  async getVehicle(id: number): Promise<Vehicle | undefined> {
+    const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, id));
+    return vehicle;
+  }
+
+  async getVehiclesByDriverId(driverId: number): Promise<Vehicle[]> {
+    return db.select().from(vehicles).where(eq(vehicles.driverId, driverId));
+  }
+
+  async createVehicle(vehicle: InsertVehicle): Promise<Vehicle> {
+    const [newVehicle] = await db.insert(vehicles).values(vehicle).returning();
+    return newVehicle;
+  }
+
+  async updateVehicle(id: number, vehicleData: Partial<InsertVehicle>): Promise<Vehicle | undefined> {
+    const [updatedVehicle] = await db
+      .update(vehicles)
+      .set(vehicleData)
+      .where(eq(vehicles.id, id))
+      .returning();
+    
+    return updatedVehicle;
+  }
+
+  // Location operations
+  async getLocation(id: number): Promise<Location | undefined> {
+    const [location] = await db.select().from(locations).where(eq(locations.id, id));
+    return location;
+  }
+
+  async getLocationsByUserId(userId: number): Promise<Location[]> {
+    return db.select().from(locations).where(eq(locations.userId, userId));
+  }
+
+  async createLocation(location: InsertLocation): Promise<Location> {
+    const [newLocation] = await db.insert(locations).values(location).returning();
+    return newLocation;
+  }
+
+  async updateLocation(id: number, locationData: Partial<InsertLocation>): Promise<Location | undefined> {
+    const [updatedLocation] = await db
+      .update(locations)
+      .set(locationData)
+      .where(eq(locations.id, id))
+      .returning();
+    
+    return updatedLocation;
+  }
+
+  // Ride operations
+  async getRide(id: number): Promise<Ride | undefined> {
+    const [ride] = await db.select().from(rides).where(eq(rides.id, id));
+    return ride;
+  }
+
+  async getRidesByRiderId(riderId: number): Promise<Ride[]> {
+    return db
+      .select()
+      .from(rides)
+      .where(eq(rides.riderId, riderId))
+      .orderBy(desc(rides.createdAt));
+  }
+
+  async getRidesByDriverId(driverId: number): Promise<Ride[]> {
+    return db
+      .select()
+      .from(rides)
+      .where(eq(rides.driverId, driverId))
+      .orderBy(desc(rides.createdAt));
+  }
+
+  async getActiveRideByRiderId(riderId: number): Promise<Ride | undefined> {
+    const [ride] = await db
+      .select()
+      .from(rides)
+      .where(
+        and(
+          eq(rides.riderId, riderId),
+          inArray(rides.status, ['requested', 'accepted', 'in_progress'])
+        )
+      );
+    
+    return ride;
+  }
+
+  async getActiveRideByDriverId(driverId: number): Promise<Ride | undefined> {
+    const [ride] = await db
+      .select()
+      .from(rides)
+      .where(
+        and(
+          eq(rides.driverId, driverId),
+          inArray(rides.status, ['accepted', 'in_progress'])
+        )
+      );
+    
+    return ride;
+  }
+
+  async createRide(ride: InsertRide): Promise<Ride> {
+    const [newRide] = await db.insert(rides).values(ride).returning();
+    return newRide;
+  }
+
+  async updateRide(id: number, rideData: Partial<InsertRide>): Promise<Ride | undefined> {
+    const [updatedRide] = await db
+      .update(rides)
+      .set(rideData)
+      .where(eq(rides.id, id))
+      .returning();
+    
+    return updatedRide;
+  }
+
+  async acceptRide(id: number, driverId: number, vehicleId: number): Promise<Ride | undefined> {
+    const now = new Date();
+    const [acceptedRide] = await db
+      .update(rides)
+      .set({
+        driverId,
+        vehicleId,
+        status: 'accepted',
+        acceptedAt: now
+      })
+      .where(
+        and(
+          eq(rides.id, id),
+          eq(rides.status, 'requested')
+        )
+      )
+      .returning();
+    
+    return acceptedRide;
+  }
+
+  async startRide(id: number): Promise<Ride | undefined> {
+    const now = new Date();
+    const [startedRide] = await db
+      .update(rides)
+      .set({
+        status: 'in_progress',
+        startedAt: now
+      })
+      .where(
+        and(
+          eq(rides.id, id),
+          eq(rides.status, 'accepted')
+        )
+      )
+      .returning();
+    
+    return startedRide;
+  }
+
+  async completeRide(id: number, actualFare: number): Promise<Ride | undefined> {
+    const now = new Date();
+    const [completedRide] = await db
+      .update(rides)
+      .set({
+        status: 'completed',
+        completedAt: now,
+        actualFare
+      })
+      .where(
+        and(
+          eq(rides.id, id),
+          eq(rides.status, 'in_progress')
+        )
+      )
+      .returning();
+    
+    return completedRide;
+  }
+
+  async cancelRide(id: number): Promise<Ride | undefined> {
+    const now = new Date();
+    const [cancelledRide] = await db
+      .update(rides)
+      .set({
+        status: 'cancelled',
+        cancelledAt: now
+      })
+      .where(
+        and(
+          eq(rides.id, id),
+          inArray(rides.status, ['requested', 'accepted'])
+        )
+      )
+      .returning();
+    
+    return cancelledRide;
+  }
+
+  async rateRide(id: number, rating: number, isDriverRating: boolean): Promise<Ride | undefined> {
+    const field = isDriverRating ? "driverRating" : "riderRating";
+    const updateData: any = {};
+    updateData[field] = rating;
+    
+    const [ratedRide] = await db
+      .update(rides)
+      .set(updateData)
+      .where(eq(rides.id, id))
+      .returning();
+    
+    // Update user's average rating
+    if (ratedRide) {
+      const userId = isDriverRating ? ratedRide.riderId : ratedRide.driverId;
+      
+      // Get all ratings for this user
+      const userRides = await db
+        .select()
+        .from(rides)
+        .where(
+          isDriverRating 
+            ? and(eq(rides.riderId, userId), sql`${rides.driverRating} IS NOT NULL`) 
+            : and(eq(rides.driverId, userId), sql`${rides.riderRating} IS NOT NULL`)
+        );
+      
+      // Calculate average rating
+      if (userRides.length > 0) {
+        const ratings = userRides.map(ride => isDriverRating ? (ride.driverRating || 0) : (ride.riderRating || 0));
+        const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+        
+        // Update user's rating
+        await db
+          .update(users)
+          .set({ rating: averageRating })
+          .where(eq(users.id, userId));
+      }
+    }
+    
+    return ratedRide;
+  }
+
+  // Stripe related operations
+  async updateUserStripeInfo(userId: number, stripeInfo: { stripeCustomerId?: string, stripeConnectedAccountId?: string }): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        stripeCustomerId: stripeInfo.stripeCustomerId,
+        stripeConnectedAccountId: stripeInfo.stripeConnectedAccountId
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updatedUser;
+  }
+
+  async updateRidePaymentInfo(rideId: number, paymentInfo: { paymentIntentId: string, paymentStatus: string }): Promise<Ride | undefined> {
+    const [updatedRide] = await db
+      .update(rides)
+      .set({
+        paymentIntentId: paymentInfo.paymentIntentId,
+        paymentStatus: paymentInfo.paymentStatus
+      })
+      .where(eq(rides.id, rideId))
+      .returning();
+    
+    return updatedRide;
+  }
+
+  // Settings operations
+  async getSetting(key: string): Promise<Setting | undefined> {
+    const [setting] = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, key));
+    
+    return setting;
+  }
+
+  async updateSetting(key: string, value: any): Promise<Setting | undefined> {
+    // Check if setting exists
+    const existingSetting = await this.getSetting(key);
+    
+    if (existingSetting) {
+      // Update existing setting
+      const [updatedSetting] = await db
+        .update(settings)
+        .set({
+          value,
+          updatedAt: new Date()
+        })
+        .where(eq(settings.key, key))
+        .returning();
+      
+      return updatedSetting;
+    } else {
+      // Create new setting
+      const [newSetting] = await db
+        .insert(settings)
+        .values({
+          key,
+          value,
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      return newSetting;
+    }
+  }
+}
+
+export const storage = new DatabaseStorage();
