@@ -1,0 +1,116 @@
+Technical Breakdown of BookMyWhip
+Overview
+BookMyWhip is a comprehensive ride-hailing platform that connects riders with drivers through a web-based application accessible on both desktop and mobile browsers. It's designed as a full-stack JavaScript application with a React frontend and Express.js backend, using PostgreSQL for data persistence.
+
+Platform & Deployment
+Primary Platform: Web application (responsive design for mobile and desktop)
+Deployment Target: Microsoft Azure (utilizing Azure Pipelines for CI/CD)
+Database: PostgreSQL
+Core Components
+1. User System
+User Types:
+Riders (customers seeking transportation)
+Drivers (service providers)
+Administrators (platform managers)
+Authentication:
+Passport.js with local strategy
+JWT tokens for API authorization
+Session management with express-session
+2. Rider Application
+Ride Booking Flow:
+Location selection (current location and destination)
+Ride type selection (economy, premium, etc.)
+Fare preview before confirmation
+Real-time driver tracking
+Ride status updates
+Features:
+Location history for frequently visited places
+Ride history with detailed trip information
+Driver ratings and reviews
+Ride cancelation functionality
+3. Driver Application
+Driver Dashboard:
+Ride request notifications
+Accept/decline ride options
+Navigation to pickup and dropoff locations
+Earnings tracker (daily, weekly)
+Online/offline status toggle
+Features:
+Acceptance rate monitoring
+Online hours tracking
+Ride completion flow
+Multiple vehicle management
+4. Admin Panel
+Statistics Dashboard:
+Active rides monitoring
+Total drivers count
+Daily rides count
+Revenue tracking
+Management Tools:
+Fare calculation settings
+Commission rate adjustment
+Surge pricing controls
+User management
+5. Dynamic Pricing Engine
+Fare Calculation Factors:
+Base fare (configurable)
+Per-mile rate
+Per-minute rate
+Ride type multiplier
+Surge pricing during high demand (configurable multiplier)
+Commission System:
+Configurable platform commission rate
+Driver earnings calculation
+6. Real-time Features
+WebSocket Communication for:
+Driver location updates
+Ride status changes
+Ride requests and notifications
+In-app chat between rider and driver
+7. Map Integration
+Map View Component for:
+Current location display
+Pickup and dropoff markers
+Driver location tracking
+Route visualization
+8. Payment Processing
+Stripe Integration for:
+Secure payment handling
+Card management
+Payment history
+Technical Architecture
+Frontend
+Framework: React.js
+State Management: React Query for server state
+UI Components: Custom components with shadcn/ui
+Styling: Tailwind CSS with theme customization
+API Communication: Fetch API with custom wrapper
+Backend
+Server: Express.js on Node.js
+API Design: RESTful endpoints with JSON responses
+Authentication: Passport.js with session management
+Database ORM: Drizzle ORM with TypeScript integration
+WebSockets: Socket.IO for real-time features
+Data Model
+Users: User profiles, authentication, roles
+Vehicles: Driver vehicle information
+Rides: Trip details, status, timestamps, payment info
+Location History: Saved locations for quick selection
+App Settings: Configurable platform parameters
+Security Features
+Password Handling: Secure hashing with scrypt
+Session Management: Secure cookies with proper settings
+API Security: Input validation with Zod schemas
+Database Security: Prepared statements to prevent SQL injection
+Key Functionalities in Detail
+Proximity-Based Driver Finding
+Algorithm to find nearby drivers based on geographical distance
+Configurable search radius
+Ride Lifecycle Management
+Request → Accept → In Progress → Completed/Cancelled states
+Appropriate timestamps for each stage
+Status-specific UI for both rider and driver
+Dynamic Rating System
+Post-ride rating collection
+Driver average rating calculation and display
+The application is designed to be scalable, with clear separation between frontend and backend concerns, robust error handling, and a comprehensive storage interface that abstracts database operations from the business logic.
