@@ -1,184 +1,124 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useCallback, useEffect } from 'react';
+import { DEFAULT_MAP_CENTER } from '@/lib/constants';
 
-export interface Location {
-  id: number;
-  userId?: number;
-  name?: string;
-  address: string;
+type LocationError = 'denied' | 'unavailable' | 'timeout' | 'unknown';
+
+interface LocationState {
   latitude: number;
   longitude: number;
-  type?: string;
-  isFavorite: boolean;
-}
-
-interface CreateLocationData {
-  name?: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  type?: string;
-  isFavorite?: boolean;
+  accuracy?: number;
+  heading?: number;
+  speed?: number;
+  timestamp?: number;
 }
 
 interface UseLocationResult {
-  savedLocations: Location[];
-  isLoading: boolean;
-  currentLocation: GeolocationCoordinates | null;
-  getCurrentAddress: () => Promise<string>;
-  saveLocation: (location: CreateLocationData) => Promise<Location>;
-  updateLocation: (id: number, location: Partial<CreateLocationData>) => Promise<Location>;
-  deleteLocation: (id: number) => Promise<void>;
+  currentLocation: LocationState | null;
+  watchLocation: () => void;
+  stopWatching: () => void;
+  error: LocationError | null;
+  isWatching: boolean;
 }
 
 export function useLocation(): UseLocationResult {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [currentLocation, setCurrentLocation] = useState<GeolocationCoordinates | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<LocationState | null>(null);
+  const [error, setError] = useState<LocationError | null>(null);
+  const [isWatching, setIsWatching] = useState(false);
+  const [watchId, setWatchId] = useState<number | null>(null);
 
-  // Get saved locations
-  const { 
-    data: savedLocations = [], 
-    isLoading,
-  } = useQuery<Location[]>({ 
-    queryKey: ['/api/locations'],
-    enabled: !!queryClient.getQueryData(['/api/me']), // Only fetch if logged in
-  });
+  // Success handler for geolocation API
+  const handleSuccess = useCallback((position: GeolocationPosition) => {
+    setError(null);
+    setCurrentLocation({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      heading: position.coords.heading || undefined,
+      speed: position.coords.speed || undefined,
+      timestamp: position.timestamp
+    });
+  }, []);
 
-  // Create location mutation
-  const createLocationMutation = useMutation({
-    mutationFn: async (data: CreateLocationData) => {
-      const response = await apiRequest('POST', '/api/locations', data);
-      return response.json();
-    },
-    onSuccess: (newLocation) => {
-      queryClient.setQueryData(
-        ['/api/locations'], 
-        (old: Location[] | undefined) => [...(old || []), newLocation]
-      );
-      toast({
-        title: 'Location saved',
-        description: `${newLocation.name || 'Location'} has been saved`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error saving location',
-        description: error.message || 'Something went wrong',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Update location mutation
-  const updateLocationMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number, data: Partial<CreateLocationData> }) => {
-      const response = await apiRequest('PATCH', `/api/locations/${id}`, data);
-      return response.json();
-    },
-    onSuccess: (updatedLocation) => {
-      queryClient.setQueryData(
-        ['/api/locations'], 
-        (old: Location[] | undefined) => 
-          (old || []).map(loc => loc.id === updatedLocation.id ? updatedLocation : loc)
-      );
-      toast({
-        title: 'Location updated',
-        description: `${updatedLocation.name || 'Location'} has been updated`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error updating location',
-        description: error.message || 'Something went wrong',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Delete location mutation
-  const deleteLocationMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest('DELETE', `/api/locations/${id}`);
-    },
-    onSuccess: (_, id) => {
-      queryClient.setQueryData(
-        ['/api/locations'], 
-        (old: Location[] | undefined) => 
-          (old || []).filter(loc => loc.id !== id)
-      );
-      toast({
-        title: 'Location deleted',
-        description: 'The location has been deleted',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error deleting location',
-        description: error.message || 'Something went wrong',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Get current location using browser geolocation API
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation(position.coords);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          toast({
-            title: 'Location access denied',
-            description: 'Please enable location access for better experience',
-            variant: 'destructive',
-          });
-        }
-      );
-    } else {
-      toast({
-        title: 'Geolocation not supported',
-        description: 'Your browser does not support geolocation',
-        variant: 'destructive',
-      });
-    }
-  }, [toast]);
-
-  // Get address from coordinates using a geocoding service
-  // In a real app, you would use a geocoding API like Google's
-  const getCurrentAddress = useCallback(async (): Promise<string> => {
-    if (!currentLocation) {
-      throw new Error('Current location not available');
+  // Error handler for geolocation API
+  const handleError = useCallback((error: GeolocationPositionError) => {
+    let errorType: LocationError = 'unknown';
+    
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        errorType = 'denied';
+        break;
+      case error.POSITION_UNAVAILABLE:
+        errorType = 'unavailable';
+        break;
+      case error.TIMEOUT:
+        errorType = 'timeout';
+        break;
     }
     
-    // In a real app, you would make an API call here
-    // For now, we'll return a placeholder
-    return Promise.resolve('Current Location');
+    setError(errorType);
+    
+    // If position is completely unavailable, use default
+    if (errorType === 'unavailable' && !currentLocation) {
+      setCurrentLocation({
+        latitude: DEFAULT_MAP_CENTER.lat,
+        longitude: DEFAULT_MAP_CENTER.lng
+      });
+    }
   }, [currentLocation]);
 
-  const saveLocation = useCallback(async (location: CreateLocationData): Promise<Location> => {
-    return await createLocationMutation.mutateAsync(location);
-  }, [createLocationMutation]);
+  // Start watching position
+  const watchLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError('unavailable');
+      return;
+    }
 
-  const updateLocation = useCallback(async (id: number, location: Partial<CreateLocationData>): Promise<Location> => {
-    return await updateLocationMutation.mutateAsync({ id, data: location });
-  }, [updateLocationMutation]);
+    // Clear any existing watch
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+    }
 
-  const deleteLocation = useCallback(async (id: number): Promise<void> => {
-    await deleteLocationMutation.mutateAsync(id);
-  }, [deleteLocationMutation]);
+    // Get initial position
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    });
+
+    // Start watching position
+    const id = navigator.geolocation.watchPosition(handleSuccess, handleError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    });
+
+    setWatchId(id);
+    setIsWatching(true);
+  }, [handleSuccess, handleError, watchId]);
+
+  // Stop watching position
+  const stopWatching = useCallback(() => {
+    if (watchId !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId);
+      setWatchId(null);
+      setIsWatching(false);
+    }
+  }, [watchId]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (watchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [watchId]);
 
   return {
-    savedLocations,
-    isLoading,
     currentLocation,
-    getCurrentAddress,
-    saveLocation,
-    updateLocation,
-    deleteLocation,
+    watchLocation,
+    stopWatching,
+    error,
+    isWatching
   };
 }

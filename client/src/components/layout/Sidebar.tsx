@@ -12,8 +12,15 @@ export default function Sidebar() {
     return location === path;
   };
 
+  // Define nav item type
+  type NavItem = {
+    href: string;
+    label: string;
+    icon: string;
+  };
+
   // Navigation items based on user role
-  let navItems = [];
+  let navItems: NavItem[] = [];
 
   if (user.role === 'rider') {
     navItems = [
@@ -22,6 +29,7 @@ export default function Sidebar() {
       { href: "/profile", label: "Profile", icon: "user" },
       { href: "/payment", label: "Payment", icon: "credit-card" },
       { href: "/settings", label: "Settings", icon: "settings" },
+      { href: "/demo", label: "UI Demo", icon: "layout" },
     ];
   } else if (user.role === 'driver') {
     navItems = [
@@ -30,6 +38,7 @@ export default function Sidebar() {
       { href: "/history", label: "Ride History", icon: "history" },
       { href: "/earnings", label: "Earnings", icon: "dollar-sign" },
       { href: "/settings", label: "Settings", icon: "settings" },
+      { href: "/demo", label: "UI Demo", icon: "layout" },
     ];
   } else if (user.role === 'admin') {
     navItems = [

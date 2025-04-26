@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './use-auth';
-import { FARE_CONSTANTS, VEHICLE_TYPES } from '@/lib/constants';
+import { BASE_FARE, PER_MILE_RATE, PER_MINUTE_RATE, VEHICLE_TYPES } from '@/lib/constants';
 import { 
   calculateDistance, 
-  calculateEstimatedDuration, 
-  calculateEstimatedFare 
+  estimateDuration, 
+  calculateFare 
 } from '@/lib/mapUtils';
 
 export interface Ride {
@@ -105,38 +105,36 @@ export function useRides(): UseRidesResult {
   const createRideMutation = useMutation({
     mutationFn: async (data: CreateRideData) => {
       // Calculate distance and duration
-      const distanceInKm = calculateDistance(
+      const distance = calculateDistance(
         data.pickupLatitude,
         data.pickupLongitude,
         data.destinationLatitude,
         data.destinationLongitude
       );
       
-      const durationInMinutes = calculateEstimatedDuration(distanceInKm);
+      const duration = estimateDuration(distance);
       
       // Get fare constants based on vehicle type
-      const baseFare = FARE_CONSTANTS.BASE_FARE[data.vehicleType];
-      const perMileRate = FARE_CONSTANTS.PER_MILE_RATE[data.vehicleType];
-      const perMinuteRate = FARE_CONSTANTS.PER_MINUTE_RATE[data.vehicleType];
+      const baseFareValue = BASE_FARE[data.vehicleType];
+      const perMileRateValue = PER_MILE_RATE[data.vehicleType];
+      const perMinuteRateValue = PER_MINUTE_RATE[data.vehicleType];
       
       // Calculate estimated fare
-      const estimatedFare = calculateEstimatedFare(
-        distanceInKm,
-        durationInMinutes,
-        baseFare,
-        perMileRate,
-        perMinuteRate
+      const estimatedFare = calculateFare(
+        distance,
+        duration,
+        data.vehicleType
       );
       
       // Create the complete ride request
       const rideRequest = {
         ...data,
-        baseFare,
-        perMileRate,
-        perMinuteRate,
-        estimatedDistance: distanceInKm,
-        estimatedDuration: durationInMinutes,
-        estimatedFare: parseFloat(estimatedFare.toFixed(2)),
+        baseFare: baseFareValue,
+        perMileRate: perMileRateValue,
+        perMinuteRate: perMinuteRateValue,
+        estimatedDistance: distance,
+        estimatedDuration: duration,
+        estimatedFare: estimatedFare,
       };
       
       const response = await apiRequest('POST', '/api/rides', rideRequest);
@@ -327,32 +325,23 @@ export function useRides(): UseRidesResult {
   }, [rateRideMutation]);
 
   // Calculate fare for a potential ride
-  const calculateFare = useCallback((
+  const calculateRideFare = useCallback((
     pickupLat: number, 
     pickupLng: number, 
     destLat: number, 
     destLng: number, 
     vehicleType: 'economy' | 'premium'
   ) => {
-    const distanceInKm = calculateDistance(pickupLat, pickupLng, destLat, destLng);
-    const durationInMinutes = calculateEstimatedDuration(distanceInKm);
+    const distance = calculateDistance(pickupLat, pickupLng, destLat, destLng);
+    const duration = estimateDuration(distance);
     
-    const baseFare = FARE_CONSTANTS.BASE_FARE[vehicleType];
-    const perMileRate = FARE_CONSTANTS.PER_MILE_RATE[vehicleType];
-    const perMinuteRate = FARE_CONSTANTS.PER_MINUTE_RATE[vehicleType];
-    
-    const fare = calculateEstimatedFare(
-      distanceInKm,
-      durationInMinutes,
-      baseFare,
-      perMileRate,
-      perMinuteRate
-    );
+    // Use the imported calculateFare function from mapUtils
+    const fare = calculateFare(distance, duration, vehicleType);
     
     return {
-      distance: distanceInKm,
-      duration: durationInMinutes,
-      fare: parseFloat(fare.toFixed(2))
+      distance,
+      duration,
+      fare
     };
   }, []);
 
@@ -367,6 +356,6 @@ export function useRides(): UseRidesResult {
     completeRide,
     cancelRide,
     rateRide,
-    calculateFare
+    calculateFare: calculateRideFare
   };
 }

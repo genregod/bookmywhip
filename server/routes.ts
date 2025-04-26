@@ -19,7 +19,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2023-10-16" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" as any })
   : null;
 
 // Store active WebSocket connections
@@ -102,9 +102,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/login', (req: Request, res: Response, next) => {
-    passport.authenticate('local', (err, user, info) => {
+    passport.authenticate('local', (err: any, user: any, info: any) => {
       if (err) return next(err);
-      if (!user) return res.status(401).json({ message: info.message || 'Authentication failed' });
+      if (!user) return res.status(401).json({ message: info?.message || 'Authentication failed' });
       
       req.logIn(user, (err) => {
         if (err) return next(err);
@@ -871,19 +871,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Set up WebSocket server
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Create WebSocket server with noCors option to avoid CORS issues in Replit environment
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    verifyClient: () => true // Accept all connections initially
+  });
   
-  wss.on('connection', (ws: WebSocket) => {
+  console.log('WebSocket server initialized at /ws');
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('WebSocket client connected');
     let userId: number | null = null;
     
-    ws.on('message', (message: string) => {
+    // Send welcome message
+    ws.send(JSON.stringify({
+      type: 'connect_success',
+      message: 'Connected to BookMyWhip realtime service'
+    }));
+    
+    ws.on('message', (messageBuffer) => {
       try {
-        const data = JSON.parse(message);
+        // Convert the buffer to a string
+        const messageString = messageBuffer.toString();
+        const data = JSON.parse(messageString);
+        console.log('WebSocket message received:', data.type);
         
         // Handle authentication
         if (data.type === 'auth' && data.userId) {
           userId = parseInt(data.userId);
           clients.set(userId, ws);
+          console.log(`User ${userId} authenticated via WebSocket`);
+        }
+        
+        // Handle ping messages for connection keep-alive
+        if (data.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+        }
+        
+        // Handle driver location updates
+        if (data.type === 'driver_location_update' && userId) {
+          // Broadcast to relevant clients (riders with active rides with this driver)
+          // This would be more sophisticated in production
+          clients.forEach((clientWs, clientId) => {
+            if (clientWs.readyState === WebSocket.OPEN && clientId !== userId) {
+              clientWs.send(JSON.stringify(data));
+            }
+          });
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
@@ -891,9 +925,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     ws.on('close', () => {
+      console.log('WebSocket client disconnected');
       if (userId) {
         clients.delete(userId);
+        console.log(`User ${userId} removed from WebSocket clients`);
       }
+    });
+    
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
     });
   });
 

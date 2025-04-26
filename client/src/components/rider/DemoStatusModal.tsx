@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Ride, useRides } from '@/hooks/use-rides';
 import { RideMap } from '@/components/maps/RideMap';
-import { LocationTracker } from '@/components/maps/LocationTracker';
-import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { RideProgressIndicator } from './RideProgressIndicator';
@@ -25,34 +22,20 @@ import {
   MessageSquareIcon,
   ThumbsUpIcon,
   XCircleIcon,
-  InfoIcon,
 } from 'lucide-react';
 import { formatDistance, formatDuration } from '@/lib/mapUtils';
-import { WS_MESSAGE_TYPES } from '@/lib/constants';
 
-interface RideStatusModalProps {
+interface DemoStatusModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  status: 'requested' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  onCancel?: () => void;
 }
 
-export function RideStatusModal({ open, onOpenChange }: RideStatusModalProps) {
-  const { activeRide, cancelRide, rateRide, isLoading } = useRides();
+export function DemoStatusModal({ open, onOpenChange, status, onCancel }: DemoStatusModalProps) {
   const { toast } = useToast();
-  const { lastMessage } = useWebSocket();
-  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(5);
-  
-  // Handle new driver location updates from WebSocket
-  useEffect(() => {
-    if (lastMessage?.type === WS_MESSAGE_TYPES.DRIVER_LOCATION_UPDATE && 
-        activeRide?.driverId === lastMessage.userId) {
-      setDriverLocation({
-        latitude: lastMessage.latitude,
-        longitude: lastMessage.longitude
-      });
-    }
-  }, [lastMessage, activeRide]);
+  const [showRating, setShowRating] = useState(status === 'completed');
   
   // Reset state when modal closes
   useEffect(() => {
@@ -64,86 +47,84 @@ export function RideStatusModal({ open, onOpenChange }: RideStatusModalProps) {
   
   // Show rating UI when ride is completed
   useEffect(() => {
-    if (activeRide?.status === 'completed' && !activeRide.riderRating) {
+    if (status === 'completed') {
       setShowRating(true);
-    }
-  }, [activeRide]);
-  
-  const handleCancel = async () => {
-    if (!activeRide) return;
-    
-    try {
-      await cancelRide(activeRide.id);
-      toast({
-        title: 'Ride cancelled',
-        description: 'Your ride has been cancelled successfully',
-      });
-      onOpenChange(false);
-    } catch (error) {
-      toast({
-        title: 'Error cancelling ride',
-        description: 'Failed to cancel your ride. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-  
-  const handleRate = async () => {
-    if (!activeRide) return;
-    
-    try {
-      await rateRide(activeRide.id, rating);
-      toast({
-        title: 'Rating submitted',
-        description: 'Thank you for your feedback!',
-      });
+    } else {
       setShowRating(false);
-    } catch (error) {
-      toast({
-        title: 'Error submitting rating',
-        description: 'Failed to submit your rating. Please try again.',
-        variant: 'destructive',
-      });
     }
+  }, [status]);
+  
+  const handleCancel = () => {
+    if (onCancel) onCancel();
+    toast({
+      title: 'Ride cancelled',
+      description: 'Your ride has been cancelled successfully',
+    });
   };
   
-  // If no active ride, don't show the modal
-  if (!activeRide) {
-    return null;
-  }
+  const handleRate = () => {
+    toast({
+      title: 'Rating submitted',
+      description: 'Thank you for your feedback!',
+    });
+    setShowRating(false);
+  };
+  
+  // Sample ride data
+  const sampleRide = {
+    id: 1,
+    riderId: 101,
+    driverId: 201,
+    vehicleId: 301,
+    pickupAddress: '123 Main St',
+    pickupLatitude: 37.7749,
+    pickupLongitude: -122.4194,
+    destinationAddress: '456 Market St',
+    destinationLatitude: 37.7920,
+    destinationLongitude: -122.4100,
+    status: status,
+    vehicleType: 'premium' as const,
+    baseFare: 10.00,
+    perMileRate: 2.50,
+    perMinuteRate: 0.35,
+    estimatedDistance: 2.5,
+    estimatedDuration: 12,
+    estimatedFare: 25.75,
+    createdAt: new Date().toISOString(),
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {getStatusTitle(activeRide.status)}
+            {getStatusTitle(status)}
           </DialogTitle>
           <DialogDescription>
-            {getStatusDescription(activeRide)}
+            {getStatusDescription(sampleRide)}
           </DialogDescription>
         </DialogHeader>
         
         {/* Animated progress indicator */}
         <div className="my-4">
           <RideProgressIndicator 
-            currentStatus={activeRide.status as any}
-            estimatedArrival={activeRide.status === 'in_progress' ? 
-              `Arriving in ${formatDuration(activeRide.estimatedDuration)}` : undefined}
+            currentStatus={status}
+            estimatedArrival={status === 'in_progress' ? 
+              `Arriving in ${formatDuration(sampleRide.estimatedDuration)}` : undefined}
             className="mb-4"
           />
         </div>
         
         {/* Map showing the current ride */}
         <RideMap
-          ride={activeRide}
-          driverLocation={driverLocation}
+          ride={sampleRide}
+          driverLocation={status !== 'requested' ? { latitude: 37.7800, longitude: -122.4150 } : null}
           showRiderControls={true}
           className="my-4"
         />
         
         {/* Driver info if ride is accepted or in progress */}
-        {(activeRide.status === 'accepted' || activeRide.status === 'in_progress') && activeRide.driverId && (
+        {(status === 'accepted' || status === 'in_progress') && (
           <div className="bg-muted/30 p-3 rounded-lg flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
@@ -152,7 +133,7 @@ export function RideStatusModal({ open, onOpenChange }: RideStatusModalProps) {
                 </svg>
               </div>
               <div>
-                <p className="font-medium">Driver Name</p>
+                <p className="font-medium">John Driver</p>
                 <div className="text-sm text-muted-foreground flex items-center">
                   <div className="flex items-center">
                     <ThumbsUpIcon className="h-3 w-3 mr-1" />
@@ -217,23 +198,22 @@ export function RideStatusModal({ open, onOpenChange }: RideStatusModalProps) {
         )}
         
         <DialogFooter className="flex flex-col sm:flex-row sm:justify-between sm:space-x-2">
-          {activeRide.status === 'requested' && (
+          {status === 'requested' && (
             <Button 
               variant="destructive" 
               onClick={handleCancel}
-              disabled={isLoading}
             >
               Cancel Ride
             </Button>
           )}
           
           {showRating && (
-            <Button onClick={handleRate} disabled={isLoading}>
+            <Button onClick={handleRate}>
               Submit Rating
             </Button>
           )}
           
-          {activeRide.status !== 'requested' && !showRating && (
+          {status !== 'requested' && !showRating && (
             <Button onClick={() => onOpenChange(false)}>
               Close
             </Button>
@@ -257,7 +237,7 @@ function getStatusTitle(status: string): string {
 }
 
 // Helper function to get status description
-function getStatusDescription(ride: Ride): string {
+function getStatusDescription(ride: any): string {
   switch (ride.status) {
     case 'requested':
       return 'We\'re finding a driver nearby for your ride.';

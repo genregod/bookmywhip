@@ -169,7 +169,12 @@ const fitMapToMarkers = (map: atlas.Map, markers: atlas.HtmlMarker[], padding: n
   if (markers.length === 0) return;
   
   // Get bounds that contain all markers
-  const positions = markers.map(m => m.getOptions().position);
+  const positions = markers
+    .map(m => m.getOptions().position)
+    .filter((pos): pos is atlas.data.Position => pos !== undefined); // Filter out undefined positions
+  
+  if (positions.length === 0) return;
+  
   const bounds = atlas.data.BoundingBox.fromPositions(positions);
   
   // Set the camera to include the bounds with padding

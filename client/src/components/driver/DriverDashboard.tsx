@@ -4,7 +4,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import MapView from '@/components/maps/MapView';
+import AzureMapView from '@/components/maps/AzureMapView';
 import { formatDistance, formatDuration } from '@/lib/mapUtils';
 import { useLocation } from '@/hooks/use-location';
 import { Card, CardContent } from '@/components/ui/card';
@@ -190,11 +190,11 @@ export default function DriverDashboard() {
       
       // Also update the WebSocket status if connected
       if (connected && sendMessage) {
-        sendMessage(JSON.stringify({
+        sendMessage({
           type: 'driver_status_change',
           isOnline: newStatus,
           driverId: user?.id,
-        }));
+        });
       }
       
       toast({
@@ -246,7 +246,8 @@ export default function DriverDashboard() {
     <div className="flex flex-col h-full">
       {/* Map Container */}
       <div className="bg-gray-200 flex-1 relative map-container">
-        <MapView 
+        {/* Use AzureMapView with Azure Maps */}
+        <AzureMapView 
           markers={getMapMarkers()}
           path={activeRide ? {
             points: [
