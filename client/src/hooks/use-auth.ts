@@ -14,6 +14,14 @@ export type User = {
   avatar?: string;
   rating?: number;
   createdAt?: string;
+  isEmailVerified?: boolean;
+  isPhoneVerified?: boolean;
+  isIdentityVerified?: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpiry?: string;
+  phoneVerificationCode?: string;
+  phoneVerificationExpiry?: string;
+  identityVerificationStatus?: 'pending' | 'submitted' | 'verified' | 'rejected';
 };
 
 interface RegisterData {

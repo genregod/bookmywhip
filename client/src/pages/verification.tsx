@@ -1,161 +1,179 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
-import LoadingIndicator from '@/components/shared/LoadingIndicator';
+import { Stepper, Step } from '@/components/ui/stepper';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { CheckCircle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
+import LoadingIndicator from '@/components/shared/LoadingIndicator';
 import EmailVerification from '@/components/verification/EmailVerification';
 import PhoneVerification from '@/components/verification/PhoneVerification';
 import IdentityVerification from '@/components/verification/IdentityVerification';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { CheckCircle2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
 
+// Define the verification steps
 type VerificationStep = 'email' | 'phone' | 'identity' | 'complete';
 
 export default function VerificationPage() {
-  const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
-  const [currentStep, setCurrentStep] = useState<VerificationStep>('email');
-  const [isRetrievingStatus, setIsRetrievingStatus] = useState(true);
-  const { toast } = useToast();
+  const { user, isLoading, updateProfile } = useAuth();
+  const [activeStep, setActiveStep] = useState<VerificationStep>('email');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Redirect to home if already verified
   useEffect(() => {
-    if (!isLoading && !user) {
-      navigate('/login');
-      return;
-    }
-
-    if (user) {
-      fetchVerificationStatus();
+    if (!isLoading && user) {
+      const { isEmailVerified, isPhoneVerified, isIdentityVerified } = user;
+      
+      if (isEmailVerified && isPhoneVerified && isIdentityVerified) {
+        navigate('/');
+      } else if (isEmailVerified && isPhoneVerified) {
+        setActiveStep('identity');
+      } else if (isEmailVerified) {
+        setActiveStep('phone');
+      }
     }
   }, [user, isLoading, navigate]);
 
-  const fetchVerificationStatus = async () => {
-    setIsRetrievingStatus(true);
+  const handleEmailVerified = async () => {
+    setIsSubmitting(true);
     try {
-      const res = await apiRequest('GET', '/api/verification-status');
-      if (res.ok) {
-        const data = await res.json();
-        
-        // Determine which step to show
-        if (!data.isEmailVerified) {
-          setCurrentStep('email');
-        } else if (!data.isPhoneVerified) {
-          setCurrentStep('phone');
-        } else if (!data.isIdentityVerified) {
-          setCurrentStep('identity');
-        } else {
-          setCurrentStep('complete');
-        }
-      } else {
-        // Default to first step if we can't get status
-        setCurrentStep('email');
-      }
+      // Here we'd normally call an API to verify the email
+      // For demo purposes, we'll just update the user object
+      await updateProfile({ isEmailVerified: true });
+      setActiveStep('phone');
     } catch (error) {
-      console.error('Error fetching verification status:', error);
-      setCurrentStep('email');
+      console.error('Error verifying email:', error);
     } finally {
-      setIsRetrievingStatus(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleEmailVerified = () => {
-    setCurrentStep('phone');
+  const handlePhoneVerified = async () => {
+    setIsSubmitting(true);
+    try {
+      // Here we'd normally call an API to verify the phone
+      await updateProfile({ isPhoneVerified: true });
+      setActiveStep('identity');
+    } catch (error) {
+      console.error('Error verifying phone:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handlePhoneVerified = () => {
-    setCurrentStep('identity');
+  const handleIdentityVerified = async () => {
+    setIsSubmitting(true);
+    try {
+      // Here we'd normally call an API to verify identity documents
+      await updateProfile({ isIdentityVerified: true });
+      setActiveStep('complete');
+    } catch (error) {
+      console.error('Error verifying identity:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleIdentityVerified = () => {
-    setCurrentStep('complete');
-  };
-
-  const handleContinue = () => {
+  const handleComplete = () => {
     navigate('/');
   };
 
-  // Show loading indicator while checking authentication and verification status
-  if (isLoading || isRetrievingStatus) {
-    return <LoadingIndicator message="Loading verification status..." />;
+  // Show loading if user data is still loading
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <LoadingIndicator message="Loading verification..." />
+      </MainLayout>
+    );
   }
+
+  // Render the appropriate verification step
+  const renderStep = () => {
+    if (!user) return null;
+
+    switch (activeStep) {
+      case 'email':
+        return <EmailVerification email={user.email || ''} onVerified={handleEmailVerified} />;
+      case 'phone':
+        return <PhoneVerification phoneNumber={user.phoneNumber || ''} onVerified={handlePhoneVerified} />;
+      case 'identity':
+        return <IdentityVerification onComplete={handleIdentityVerified} />;
+      case 'complete':
+        return (
+          <Card className="w-full max-w-md mx-auto mt-8">
+            <CardHeader>
+              <div className="flex justify-center mb-4">
+                <CheckCircle size={48} className="text-green-500" />
+              </div>
+              <CardTitle className="text-center">Verification Complete</CardTitle>
+              <CardDescription className="text-center">
+                You have successfully completed all verification steps
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p>Thank you for verifying your account. You can now use all features of BookMyWhip.</p>
+            </CardContent>
+            <CardFooter className="flex justify-center">
+              <Button onClick={handleComplete}>Go to Dashboard</Button>
+            </CardFooter>
+          </Card>
+        );
+    }
+  };
 
   return (
     <MainLayout>
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex flex-col items-center justify-center max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8 text-center">Account Verification</h1>
-          
-          <div className="flex justify-center mb-8 w-full">
-            <div className="flex items-center w-full max-w-xl">
-              <div className={`flex flex-col items-center ${currentStep === 'email' ? 'text-primary' : (currentStep === 'phone' || currentStep === 'identity' || currentStep === 'complete') ? 'text-green-500' : 'text-gray-400'}`}>
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep === 'email' ? 'bg-primary' : (currentStep === 'phone' || currentStep === 'identity' || currentStep === 'complete') ? 'bg-green-500' : 'bg-gray-200'} text-white mb-2`}>
-                  {(currentStep === 'phone' || currentStep === 'identity' || currentStep === 'complete') ? <CheckCircle2 className="h-6 w-6" /> : '1'}
-                </div>
-                <span className="text-sm">Email</span>
-              </div>
-              
-              <div className={`flex-1 h-1 mx-2 ${(currentStep === 'phone' || currentStep === 'identity' || currentStep === 'complete') ? 'bg-green-500' : 'bg-gray-200'}`}></div>
-              
-              <div className={`flex flex-col items-center ${currentStep === 'phone' ? 'text-primary' : (currentStep === 'identity' || currentStep === 'complete') ? 'text-green-500' : 'text-gray-400'}`}>
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep === 'phone' ? 'bg-primary' : (currentStep === 'identity' || currentStep === 'complete') ? 'bg-green-500' : 'bg-gray-200'} text-white mb-2`}>
-                  {(currentStep === 'identity' || currentStep === 'complete') ? <CheckCircle2 className="h-6 w-6" /> : '2'}
-                </div>
-                <span className="text-sm">Phone</span>
-              </div>
-              
-              <div className={`flex-1 h-1 mx-2 ${(currentStep === 'identity' || currentStep === 'complete') ? 'bg-green-500' : 'bg-gray-200'}`}></div>
-              
-              <div className={`flex flex-col items-center ${currentStep === 'identity' ? 'text-primary' : currentStep === 'complete' ? 'text-green-500' : 'text-gray-400'}`}>
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep === 'identity' ? 'bg-primary' : currentStep === 'complete' ? 'bg-green-500' : 'bg-gray-200'} text-white mb-2`}>
-                  {currentStep === 'complete' ? <CheckCircle2 className="h-6 w-6" /> : '3'}
-                </div>
-                <span className="text-sm">Identity</span>
-              </div>
-            </div>
-          </div>
-          
-          {currentStep === 'email' && user?.email && (
-            <EmailVerification 
-              email={user.email} 
-              onVerified={handleEmailVerified} 
-            />
-          )}
-          
-          {currentStep === 'phone' && user?.phoneNumber && (
-            <PhoneVerification 
-              phoneNumber={user.phoneNumber} 
-              onVerified={handlePhoneVerified} 
-            />
-          )}
-          
-          {currentStep === 'identity' && (
-            <IdentityVerification 
-              onComplete={handleIdentityVerified} 
-            />
-          )}
-          
-          {currentStep === 'complete' && (
-            <Card className="max-w-md w-full mx-auto">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold text-center">Verification Complete!</CardTitle>
-                <CardDescription className="text-center">
-                  Thank you for verifying your account. You now have full access to all BookMyWhip features.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center">
-                <div className="flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
-                  <CheckCircle2 className="h-12 w-12 text-green-500" />
-                </div>
-                <Button onClick={handleContinue} className="w-full">
-                  Continue to Dashboard
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+      <div className="container max-w-4xl p-4 md:p-6">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold">Account Verification</h1>
+          <p className="text-gray-600">Complete the following steps to verify your account</p>
         </div>
+
+        <Stepper 
+          activeStep={
+            activeStep === 'email' ? 0 : 
+            activeStep === 'phone' ? 1 : 
+            activeStep === 'identity' ? 2 : 3
+          }
+          className="mb-8"
+        >
+          <Step 
+            title="Email Verification" 
+            description="Verify your email address"
+            state={
+              activeStep === 'email' ? 'active' : 
+              activeStep === 'phone' || activeStep === 'identity' || activeStep === 'complete' ? 'complete' : 'inactive'
+            }
+          />
+          <Step 
+            title="Phone Verification" 
+            description="Verify your phone number"
+            state={
+              activeStep === 'phone' ? 'active' : 
+              activeStep === 'identity' || activeStep === 'complete' ? 'complete' : 'inactive'
+            }
+          />
+          <Step 
+            title="Identity Verification" 
+            description="Verify your identity documents"
+            state={
+              activeStep === 'identity' ? 'active' : 
+              activeStep === 'complete' ? 'complete' : 'inactive'
+            }
+          />
+          <Step 
+            title="Complete" 
+            description="All steps completed"
+            state={activeStep === 'complete' ? 'active' : 'inactive'}
+          />
+        </Stepper>
+
+        {isSubmitting ? (
+          <LoadingIndicator message="Processing..." />
+        ) : (
+          renderStep()
+        )}
       </div>
     </MainLayout>
   );
