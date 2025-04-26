@@ -13,6 +13,7 @@ import Verification from "@/pages/verification";
 import Profile from "@/pages/profile";
 import Rides from "@/pages/rides";
 import Payment from "@/pages/payment";
+import Settings from "@/pages/settings";
 import Admin from "@/pages/admin";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -102,6 +103,7 @@ function Router() {
       <Route path="/profile" component={(props: any) => <ProtectedRoute component={Profile} {...props} />} />
       <Route path="/rides" component={(props: any) => <ProtectedRoute component={Rides} {...props} />} />
       <Route path="/payment" component={(props: any) => <ProtectedRoute component={Payment} {...props} />} />
+      <Route path="/settings" component={(props: any) => <ProtectedRoute component={Settings} {...props} />} />
       <Route path="/admin" component={(props: any) => <ProtectedRoute component={Admin} adminOnly={true} {...props} />} />
 
       {/* Fallback to 404 */}
