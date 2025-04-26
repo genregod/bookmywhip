@@ -1,0 +1,417 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "apiManagementServiceName": {
+      "type": "string",
+      "defaultValue": "BookMyWhipAPIManagement",
+      "metadata": {
+        "description": "The name of the API Management service instance"
+      }
+    },
+    "publisherEmail": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "The email address of the owner of the service"
+      }
+    },
+    "publisherName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "The name of the owner of the service"
+      }
+    },
+    "sku": {
+      "type": "string",
+      "allowedValues": [
+        "Developer",
+        "Standard",
+        "Premium",
+        "Basic",
+        "Consumption"
+      ],
+      "defaultValue": "Consumption",
+      "metadata": {
+        "description": "The pricing tier of this API Management service"
+      }
+    },
+    "skuCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "The instance size of this API Management service."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "appInsightsName": {
+      "type": "string",
+      "defaultValue": "BookMyWhipInsights",
+      "metadata": {
+        "description": "Name of the Application Insights instance to create for API analytics"
+      }
+    },
+    "azureMapsSubscriptionKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The Azure Maps subscription key used for location services"
+      }
+    },
+    "azureMapsClientId": {
+      "type": "string",
+      "metadata": {
+        "description": "The Azure Maps client ID used for authentication"
+      }
+    },
+    "stripeSecretKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The Stripe secret key used for payment processing"
+      }
+    },
+    "stripePublicKey": {
+      "type": "string",
+      "metadata": {
+        "description": "The Stripe public key used for client-side payment processing"
+      }
+    }
+  },
+  "resources": [
+    {
+      "apiVersion": "2020-12-01",
+      "name": "[parameters('apiManagementServiceName')]",
+      "type": "Microsoft.ApiManagement/service",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('sku')]",
+        "capacity": "[parameters('skuCount')]"
+      },
+      "properties": {
+        "publisherEmail": "[parameters('publisherEmail')]",
+        "publisherName": "[parameters('publisherName')]"
+      },
+      "resources": [
+        {
+          "apiVersion": "2020-12-01",
+          "type": "apis",
+          "name": "bookmywhip-ride-api",
+          "dependsOn": [
+            "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+          ],
+          "properties": {
+            "displayName": "BookMyWhip Ride API",
+            "description": "API for booking and managing rides",
+            "subscriptionRequired": true,
+            "serviceUrl": "https://${host}:${port}/api",
+            "path": "rides",
+            "protocols": [
+              "https"
+            ]
+          },
+          "resources": [
+            {
+              "apiVersion": "2020-12-01",
+              "type": "operations",
+              "name": "get-available-rides",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-ride-api')]"
+              ],
+              "properties": {
+                "displayName": "Get Available Rides",
+                "method": "GET",
+                "urlTemplate": "/rides/available",
+                "description": "Get all available rides in the user's area"
+              }
+            },
+            {
+              "apiVersion": "2020-12-01",
+              "type": "operations",
+              "name": "request-ride",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-ride-api')]"
+              ],
+              "properties": {
+                "displayName": "Request Ride",
+                "method": "POST",
+                "urlTemplate": "/rides",
+                "description": "Request a new ride"
+              }
+            },
+            {
+              "apiVersion": "2020-12-01",
+              "type": "policies",
+              "name": "policy",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-ride-api')]"
+              ],
+              "properties": {
+                "format": "xml",
+                "value": "<policies>\r\n  <inbound>\r\n    <cors>\r\n      <allowed-origins>\r\n        <origin>*</origin>\r\n      </allowed-origins>\r\n      <allowed-methods>\r\n        <method>GET</method>\r\n        <method>POST</method>\r\n        <method>PUT</method>\r\n        <method>DELETE</method>\r\n        <method>PATCH</method>\r\n      </allowed-methods>\r\n      <allowed-headers>\r\n        <header>Content-Type</header>\r\n        <header>Authorization</header>\r\n      </allowed-headers>\r\n    </cors>\r\n    <rate-limit calls=\"5\" renewal-period=\"60\" />\r\n    <base />\r\n  </inbound>\r\n  <backend>\r\n    <base />\r\n  </backend>\r\n  <outbound>\r\n    <base />\r\n  </outbound>\r\n  <on-error>\r\n    <base />\r\n  </on-error>\r\n</policies>"
+              }
+            }
+          ]
+        },
+        {
+          "apiVersion": "2020-12-01",
+          "type": "apis",
+          "name": "bookmywhip-driver-api",
+          "dependsOn": [
+            "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+          ],
+          "properties": {
+            "displayName": "BookMyWhip Driver API",
+            "description": "API for driver management and status updates",
+            "subscriptionRequired": true,
+            "serviceUrl": "https://${host}:${port}/api",
+            "path": "drivers",
+            "protocols": [
+              "https"
+            ]
+          },
+          "resources": [
+            {
+              "apiVersion": "2020-12-01",
+              "type": "operations",
+              "name": "update-location",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-driver-api')]"
+              ],
+              "properties": {
+                "displayName": "Update Driver Location",
+                "method": "POST",
+                "urlTemplate": "/drivers/{driverId}/location",
+                "description": "Update the current location of a driver"
+              }
+            },
+            {
+              "apiVersion": "2020-12-01",
+              "type": "operations",
+              "name": "update-status",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-driver-api')]"
+              ],
+              "properties": {
+                "displayName": "Update Driver Status",
+                "method": "PUT",
+                "urlTemplate": "/drivers/{driverId}/status",
+                "description": "Update the availability status of a driver"
+              }
+            },
+            {
+              "apiVersion": "2020-12-01",
+              "type": "policies",
+              "name": "policy",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-driver-api')]"
+              ],
+              "properties": {
+                "format": "xml",
+                "value": "<policies>\r\n  <inbound>\r\n    <cors>\r\n      <allowed-origins>\r\n        <origin>*</origin>\r\n      </allowed-origins>\r\n      <allowed-methods>\r\n        <method>GET</method>\r\n        <method>POST</method>\r\n        <method>PUT</method>\r\n        <method>DELETE</method>\r\n        <method>PATCH</method>\r\n      </allowed-methods>\r\n      <allowed-headers>\r\n        <header>Content-Type</header>\r\n        <header>Authorization</header>\r\n      </allowed-headers>\r\n    </cors>\r\n    <rate-limit calls=\"10\" renewal-period=\"60\" />\r\n    <base />\r\n  </inbound>\r\n  <backend>\r\n    <base />\r\n  </backend>\r\n  <outbound>\r\n    <base />\r\n  </outbound>\r\n  <on-error>\r\n    <base />\r\n  </on-error>\r\n</policies>"
+              }
+            }
+          ]
+        },
+        {
+          "apiVersion": "2020-12-01",
+          "type": "apis",
+          "name": "bookmywhip-payment-api",
+          "dependsOn": [
+            "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+          ],
+          "properties": {
+            "displayName": "BookMyWhip Payment API",
+            "description": "API for processing payments and managing payment methods",
+            "subscriptionRequired": true,
+            "serviceUrl": "https://${host}:${port}/api",
+            "path": "payments",
+            "protocols": [
+              "https"
+            ]
+          },
+          "resources": [
+            {
+              "apiVersion": "2020-12-01",
+              "type": "operations",
+              "name": "process-payment",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-payment-api')]"
+              ],
+              "properties": {
+                "displayName": "Process Payment",
+                "method": "POST",
+                "urlTemplate": "/payments/process",
+                "description": "Process a payment for a ride"
+              }
+            },
+            {
+              "apiVersion": "2020-12-01",
+              "type": "operations",
+              "name": "get-payment-methods",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-payment-api')]"
+              ],
+              "properties": {
+                "displayName": "Get Payment Methods",
+                "method": "GET",
+                "urlTemplate": "/payments/methods",
+                "description": "Get all payment methods for a user"
+              }
+            },
+            {
+              "apiVersion": "2020-12-01",
+              "type": "policies",
+              "name": "policy",
+              "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', parameters('apiManagementServiceName'), 'bookmywhip-payment-api')]"
+              ],
+              "properties": {
+                "format": "xml",
+                "value": "<policies>\r\n  <inbound>\r\n    <cors>\r\n      <allowed-origins>\r\n        <origin>*</origin>\r\n      </allowed-origins>\r\n      <allowed-methods>\r\n        <method>GET</method>\r\n        <method>POST</method>\r\n        <method>PUT</method>\r\n        <method>DELETE</method>\r\n        <method>PATCH</method>\r\n      </allowed-methods>\r\n      <allowed-headers>\r\n        <header>Content-Type</header>\r\n        <header>Authorization</header>\r\n      </allowed-headers>\r\n    </cors>\r\n    <rate-limit calls=\"3\" renewal-period=\"60\" />\r\n    <ip-filter action=\"allow\">\r\n      <address-range from=\"0.0.0.0\" to=\"255.255.255.255\" />\r\n    </ip-filter>\r\n    <base />\r\n  </inbound>\r\n  <backend>\r\n    <base />\r\n  </backend>\r\n  <outbound>\r\n    <base />\r\n  </outbound>\r\n  <on-error>\r\n    <base />\r\n  </on-error>\r\n</policies>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[parameters('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "Request_Source": "rest"
+      }
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/loggers",
+      "apiVersion": "2020-12-01",
+      "name": "[concat(parameters('apiManagementServiceName'), '/appinsights-logger')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]",
+        "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+      ],
+      "properties": {
+        "loggerType": "applicationInsights",
+        "description": "Application Insights logger",
+        "credentials": {
+          "instrumentationKey": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').InstrumentationKey]"
+        },
+        "isBuffered": true
+      }
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/namedValues",
+      "apiVersion": "2020-12-01",
+      "name": "[concat(parameters('apiManagementServiceName'), '/AZURE_MAPS_SUBSCRIPTION_KEY')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+      ],
+      "properties": {
+        "displayName": "AZURE_MAPS_SUBSCRIPTION_KEY",
+        "value": "[parameters('azureMapsSubscriptionKey')]",
+        "secret": true
+      }
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/namedValues",
+      "apiVersion": "2020-12-01",
+      "name": "[concat(parameters('apiManagementServiceName'), '/AZURE_MAPS_CLIENT_ID')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+      ],
+      "properties": {
+        "displayName": "AZURE_MAPS_CLIENT_ID",
+        "value": "[parameters('azureMapsClientId')]",
+        "secret": false
+      }
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/namedValues",
+      "apiVersion": "2020-12-01",
+      "name": "[concat(parameters('apiManagementServiceName'), '/STRIPE_SECRET_KEY')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+      ],
+      "properties": {
+        "displayName": "STRIPE_SECRET_KEY",
+        "value": "[parameters('stripeSecretKey')]",
+        "secret": true
+      }
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/namedValues",
+      "apiVersion": "2020-12-01",
+      "name": "[concat(parameters('apiManagementServiceName'), '/VITE_STRIPE_PUBLIC_KEY')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]"
+      ],
+      "properties": {
+        "displayName": "VITE_STRIPE_PUBLIC_KEY",
+        "value": "[parameters('stripePublicKey')]",
+        "secret": false
+      }
+    },
+    {
+      "type": "Microsoft.ApiManagement/service/diagnostics",
+      "apiVersion": "2020-12-01",
+      "name": "[concat(parameters('apiManagementServiceName'), '/applicationinsights')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ApiManagement/service', parameters('apiManagementServiceName'))]",
+        "[resourceId('Microsoft.ApiManagement/service/loggers', parameters('apiManagementServiceName'), 'appinsights-logger')]"
+      ],
+      "properties": {
+        "alwaysLog": "allErrors",
+        "httpCorrelationProtocol": "W3C",
+        "logClientIp": true,
+        "loggerId": "[resourceId('Microsoft.ApiManagement/service/loggers', parameters('apiManagementServiceName'), 'appinsights-logger')]",
+        "sampling": {
+          "samplingType": "fixed",
+          "percentage": 100
+        },
+        "verbosity": "verbose",
+        "metrics": true,
+        "backend": {
+          "request": {
+            "headers": [],
+            "body": {
+              "bytes": 0
+            }
+          },
+          "response": {
+            "headers": [],
+            "body": {
+              "bytes": 0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "apimUrl": {
+      "type": "string",
+      "value": "[concat('https://', parameters('apiManagementServiceName'), '.azure-api.net')]"
+    },
+    "apimRideApiUrl": {
+      "type": "string",
+      "value": "[concat('https://', parameters('apiManagementServiceName'), '.azure-api.net/rides')]"
+    },
+    "apimDriverApiUrl": {
+      "type": "string",
+      "value": "[concat('https://', parameters('apiManagementServiceName'), '.azure-api.net/drivers')]"
+    },
+    "apimPaymentApiUrl": {
+      "type": "string",
+      "value": "[concat('https://', parameters('apiManagementServiceName'), '.azure-api.net/payments')]"
+    }
+  }
+}
