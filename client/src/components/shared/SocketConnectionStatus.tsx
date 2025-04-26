@@ -30,12 +30,14 @@ export function SocketConnectionStatus() {
     
     // Create a new WebSocket connection
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/${activeTab}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const namespace = activeTab; // 'riders', 'drivers', or 'admin'
     
-    console.log(`Connecting to Socket.IO at ${wsUrl}`);
+    console.log(`Connecting to Socket.IO at ${wsUrl} namespace: /${namespace}`);
     
     try {
-      const socket = new WebSocket(wsUrl);
+      // Use the namespace in the URL
+      const socket = new WebSocket(`${wsUrl}/${namespace}`);
       socketRef.current = socket;
       
       socket.onopen = () => {

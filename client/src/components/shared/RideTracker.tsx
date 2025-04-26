@@ -89,8 +89,8 @@ export function RideTracker({ mode = 'rider', demoMode = false }: RideTrackerPro
     
     // Connect to the appropriate Socket.IO namespace based on mode
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const namespace = mode === 'driver' ? '/drivers' : '/riders';
-    const wsUrl = `${protocol}//${window.location.host}/ws${namespace}`;
+    const namespace = mode === 'driver' ? 'drivers' : 'riders';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${namespace}`;
     
     console.log('Connecting to Socket.IO at', wsUrl);
     
