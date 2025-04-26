@@ -172,12 +172,45 @@ export default function DriverDashboard() {
   };
 
   // Toggle online status
-  const toggleOnlineStatus = () => {
-    setIsOnline(!isOnline);
-    toast({
-      title: isOnline ? 'You are now offline' : 'You are now online',
-      description: isOnline ? 'You will not receive ride requests' : 'You will now receive ride requests',
-    });
+  const toggleOnlineStatus = async () => {
+    const newStatus = !isOnline;
+    setIsOnline(newStatus);
+    
+    // Send status to server via API call
+    try {
+      // In a real implementation, we would update the driver's status in the database
+      // For now, we're just updating the state and showing a toast
+      await fetch('/api/driver/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isOnline: newStatus }),
+      });
+      
+      // Also update the WebSocket status if connected
+      if (connected && sendMessage) {
+        sendMessage(JSON.stringify({
+          type: 'driver_status_change',
+          isOnline: newStatus,
+          driverId: user?.id,
+        }));
+      }
+      
+      toast({
+        title: newStatus ? 'You are now online' : 'You are now offline',
+        description: newStatus ? 'You will now receive ride requests' : 'You will not receive ride requests',
+      });
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      // Revert state if API call fails
+      setIsOnline(!newStatus);
+      toast({
+        title: 'Status update failed',
+        description: 'Unable to update your status. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Status pill content based on active ride status

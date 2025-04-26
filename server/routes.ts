@@ -801,6 +801,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Driver status update endpoint
+  app.post('/api/driver/status', async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      
+      const currentUser = req.user as any;
+      
+      if (currentUser.role !== 'driver') {
+        return res.status(403).json({ message: 'Only drivers can update status' });
+      }
+      
+      const { isOnline } = req.body;
+      
+      if (typeof isOnline !== 'boolean') {
+        return res.status(400).json({ message: 'Invalid status. Expected boolean value.' });
+      }
+      
+      // In a real implementation, we would update the driver's status in the database
+      // For now, we'll just return success
+      
+      // Notify all clients about the driver's status change
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'driver_status_update',
+            driverId: currentUser.id,
+            isOnline: isOnline
+          }));
+        }
+      });
+      
+      res.json({ success: true, isOnline });
+    } catch (error) {
+      console.error('Error updating driver status:', error);
+      res.status(500).json({ message: 'Failed to update driver status' });
+    }
+  });
+
   // Admin routes
   app.get('/api/admin/stats', async (req: Request, res: Response) => {
     try {
