@@ -1,36 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from './use-auth';
+import { useState, useCallback } from 'react';
 
-type WebSocketMessage = {
+export type WebSocketMessage = {
   type: string;
   [key: string]: any;
 };
 
-interface UseWebSocketResult {
+export interface UseWebSocketResult {
   connected: boolean;
   lastMessage: WebSocketMessage | null;
   sendMessage: (message: WebSocketMessage) => void;
 }
 
+// This hook has been completely disabled due to WebSocket connection issues
+// In a real application, this would be replaced with a working WebSocket implementation
 export function useWebSocket(): UseWebSocketResult {
-  const { user } = useAuth();
-  const [connected, setConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
+  const [connected] = useState(false);
+  const [lastMessage] = useState<WebSocketMessage | null>(null);
   
-  // Temporarily disabling WebSocket functionality
-  // We'll use a dummy implementation that doesn't try to connect
-  
-  // Initialize WebSocket connection
-  useEffect(() => {
-    console.log('WebSocket functionality is temporarily disabled');
-    // Returning a no-op cleanup function
-    return () => {};
-  }, [user]);
-
-  // Send a message over the WebSocket (temporarily disabled)
+  // Dummy message sender
   const sendMessage = useCallback((message: WebSocketMessage) => {
-    console.log('WebSocket message sending is disabled:', message);
-    // No-op for now
+    console.log('WebSocket is disabled. Message not sent:', message);
   }, []);
 
   return {
