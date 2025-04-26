@@ -23,6 +23,22 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow(),
   stripeCustomerId: text('stripe_customer_id'),
   stripeConnectedAccountId: text('stripe_connected_account_id'),
+  
+  // Verification fields
+  isEmailVerified: boolean('is_email_verified').default(false),
+  emailVerificationToken: text('email_verification_token'),
+  emailVerificationExpiry: timestamp('email_verification_expiry'),
+  
+  isPhoneVerified: boolean('is_phone_verified').default(false),
+  phoneVerificationCode: text('phone_verification_code'),
+  phoneVerificationExpiry: timestamp('phone_verification_expiry'),
+  
+  isIdentityVerified: boolean('is_identity_verified').default(false),
+  identityDocuments: json('identity_documents'),
+  identityVerificationStatus: text('identity_verification_status').default('pending'),
+  
+  resetPasswordToken: text('reset_password_token'),
+  resetPasswordExpiry: timestamp('reset_password_expiry'),
 });
 
 // User relations

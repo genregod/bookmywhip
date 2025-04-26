@@ -12,7 +12,7 @@ import { useLocation } from '@/hooks/use-location';
 
 export default function Home() {
   const { user } = useAuth();
-  const { rides, activeRide } = useRides();
+  const { isLoading: ridesLoading, activeRide } = useRides();
   const { currentLocation } = useLocation();
   const [showRideModal, setShowRideModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +28,15 @@ export default function Home() {
   const handleBookRide = () => {
     setShowRideModal(true);
   };
+
+  // Display loading state while ride data is loading
+  if (ridesLoading) {
+    return (
+      <MainLayout>
+        <LoadingIndicator message="Loading your BookMyWhip experience..." />
+      </MainLayout>
+    );
+  }
 
   // Different dashboard based on user role
   const renderDashboard = () => {
