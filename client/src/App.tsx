@@ -108,7 +108,7 @@ function Router() {
       <Route path="/settings" component={(props: any) => <ProtectedRoute component={Settings} {...props} />} />
       <Route path="/earnings" component={(props: any) => <ProtectedRoute component={Earnings} {...props} />} />
       <Route path="/admin" component={(props: any) => <ProtectedRoute component={Admin} adminOnly={true} {...props} />} />
-      <Route path="/demo" component={(props: any) => <PublicRoute component={Demo} {...props} />} />
+      <Route path="/demo" component={Demo} />
 
       {/* Fallback to 404 */}
       <Route component={NotFound} />

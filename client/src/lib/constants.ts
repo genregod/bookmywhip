@@ -34,6 +34,13 @@ export const COMPANY_PHONE = '+1 (800) BOOK-WHIP';
 export const COMPANY_EMAIL = 'support@bookmywhip.com';
 export const COMPANY_ADDRESS = '123 Mobility Street, San Francisco, CA 94105';
 
+// User roles
+export const USER_ROLES = {
+  RIDER: 'rider',
+  DRIVER: 'driver',
+  ADMIN: 'admin'
+};
+
 // Form defaults
 export const DEFAULT_FORM_TRANSITION = { type: 'tween', duration: 0.3 };
 

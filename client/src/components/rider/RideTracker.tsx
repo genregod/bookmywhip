@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Ride } from '@/hooks/use-rides';
 import { RideProgressIndicator } from './RideProgressIndicator';
 import { RideMap } from '@/components/maps/RideMap';
-import { formatDistance, formatDuration, calculateDistance } from '@/lib/mapUtils';
+import { formatDistance, formatDuration } from '@/lib/mapUtils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PhoneIcon, MessageSquareIcon, XCircleIcon, CarFront, Clock } from 'lucide-react';

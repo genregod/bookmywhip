@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from 'ws';
 import { storage } from "./storage";
+import path from "path";
 import { insertUserSchema, insertRideSchema, insertVehicleSchema, insertLocationSchema } from "@shared/schema";
 import { z } from "zod";
 import Stripe from "stripe";
@@ -26,6 +27,11 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const clients = new Map<number, WebSocket>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve the demo page directly
+  app.get('/demo-components', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'client', 'demo.html'));
+  });
+
   // Set up session management
   app.use(session({
     cookie: { maxAge: 86400000 }, // 24 hours

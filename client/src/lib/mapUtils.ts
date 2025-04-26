@@ -204,3 +204,29 @@ export function generateDummyMapPath(
   
   return points;
 }
+
+/**
+ * Format an address for better display
+ * @param address The full address to format
+ * @returns Formatted address string
+ */
+export function formatAddress(address: string): string {
+  // If address is missing or too short, return as is
+  if (!address || address.length < 5) return address;
+  
+  // Remove any country information for cleaner display (assuming US addresses)
+  const withoutCountry = address.replace(/,\s*USA$|,\s*United States$/i, '');
+  
+  // If the address is too long, try to truncate with ellipsis
+  if (withoutCountry.length > 40) {
+    const parts = withoutCountry.split(',');
+    if (parts.length > 2) {
+      // Keep just the street address and city
+      return `${parts[0].trim()}, ${parts[parts.length - 2].trim()}`;
+    }
+    // Truncate with ellipsis
+    return withoutCountry.substring(0, 37) + '...';
+  }
+  
+  return withoutCountry;
+}

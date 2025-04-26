@@ -187,14 +187,51 @@ export default function DemoPage() {
                   </p>
                 </div>
                 
-                <RideTracker 
-                  ride={{...sampleRide, status: currentRideStatus}}
-                  driverLocation={currentRideStatus !== 'requested' ? { latitude: 37.7800, longitude: -122.4150 } : null}
-                  onCancel={cancelRide}
-                  onViewDetails={() => toast({ title: "View Details clicked" })}
-                  expanded={true}
-                  className="max-w-3xl mx-auto"
-                />
+                <div className="max-w-3xl mx-auto border border-gray-200 rounded-md p-4 shadow-sm">
+                  <div className="mb-3 flex justify-between">
+                    <div>
+                      <h3 className="font-medium">Ride from {sampleRide.pickupAddress} to {sampleRide.destinationAddress}</h3>
+                      <p className="text-sm text-gray-500">2.5 miles • 12 minutes</p>
+                    </div>
+                    <div>
+                      <span className={`
+                        px-2 py-1 text-xs rounded-full font-medium
+                        ${currentRideStatus === 'requested' ? 'bg-amber-100 text-amber-700' : 
+                         currentRideStatus === 'accepted' ? 'bg-blue-100 text-blue-700' :
+                         currentRideStatus === 'in_progress' ? 'bg-indigo-100 text-indigo-700' : 
+                         currentRideStatus === 'completed' ? 'bg-green-100 text-green-700' : 
+                         'bg-red-100 text-red-700'}
+                      `}>
+                        {currentRideStatus === 'requested' ? 'Requested' :
+                         currentRideStatus === 'accepted' ? 'Driver Coming' :
+                         currentRideStatus === 'in_progress' ? 'In Progress' :
+                         currentRideStatus === 'completed' ? 'Completed' : 'Cancelled'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <RideProgressIndicator 
+                    currentStatus={currentRideStatus}
+                    estimatedArrival={currentRideStatus === 'in_progress' ? 'Arriving in 10 min' : undefined}
+                    className="mb-4"
+                  />
+                  
+                  <div className="bg-gray-100 h-40 rounded-md flex items-center justify-center mb-4">
+                    <p className="text-gray-500">Map view placeholder</p>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={() => toast({ title: "View Details clicked" })}>
+                      View Details
+                    </Button>
+                    
+                    {currentRideStatus === 'requested' && (
+                      <Button variant="destructive" onClick={cancelRide}>
+                        Cancel Ride
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -115,13 +115,18 @@ export function DemoStatusModal({ open, onOpenChange, status, onCancel }: DemoSt
           />
         </div>
         
-        {/* Map showing the current ride */}
-        <RideMap
-          ride={sampleRide}
-          driverLocation={status !== 'requested' ? { latitude: 37.7800, longitude: -122.4150 } : null}
-          showRiderControls={true}
-          className="my-4"
-        />
+        {/* Map placeholder - actual map component is causing issues in demo */}
+        <div className="my-4 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-500 font-medium mb-2">Map View</p>
+            <p className="text-sm text-gray-400">
+              {status === 'requested' ? 'Searching for nearby drivers...' : 
+               status === 'accepted' ? 'Driver is on the way to your location' :
+               status === 'in_progress' ? 'En route to destination' : 
+               status === 'completed' ? 'Ride completed' : 'Ride cancelled'}
+            </p>
+          </div>
+        </div>
         
         {/* Driver info if ride is accepted or in progress */}
         {(status === 'accepted' || status === 'in_progress') && (
