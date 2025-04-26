@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import Verification from "@/pages/verification";
 import Profile from "@/pages/profile";
 import Rides from "@/pages/rides";
 import Payment from "@/pages/payment";
@@ -89,12 +90,15 @@ function PublicRoute({ component: Component, ...rest }: any) {
   return <Component {...rest} />;
 }
 
+// Define the Router component
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={(props: any) => <ProtectedRoute component={Home} {...props} />} />
       <Route path="/login" component={(props: any) => <PublicRoute component={Login} {...props} />} />
       <Route path="/register" component={(props: any) => <PublicRoute component={Register} {...props} />} />
+      <Route path="/verification" component={(props: any) => <ProtectedRoute component={Verification} {...props} />} />
       <Route path="/profile" component={(props: any) => <ProtectedRoute component={Profile} {...props} />} />
       <Route path="/rides" component={(props: any) => <ProtectedRoute component={Rides} {...props} />} />
       <Route path="/payment" component={(props: any) => <ProtectedRoute component={Payment} {...props} />} />
@@ -106,12 +110,17 @@ function Router() {
   );
 }
 
+// Import the AuthProvider
+import { AuthProvider } from './providers/AuthProvider';
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <AuthProvider>
+          <Router />
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
