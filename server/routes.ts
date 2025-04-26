@@ -11,6 +11,7 @@ import MemoryStore from "memorystore";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { verifyPassword } from "./auth";
+import * as azureApiManagementController from './routes/azureApiManagement';
 
 const SessionStore = MemoryStore(session);
 
@@ -797,6 +798,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Driver status update endpoint
+  // Azure API Management routes
+  app.get('/api/azure/apim/initialize', async (req: Request, res: Response) => {
+    // Check if user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access Azure API Management' });
+    }
+    
+    return azureApiManagementController.initializeAzureApiManagement(req, res);
+  });
+
+  app.get('/api/azure/apim/apis', async (req: Request, res: Response) => {
+    // Check if user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access Azure API Management' });
+    }
+    
+    return azureApiManagementController.getAllApis(req, res);
+  });
+
+  app.post('/api/azure/apim/register-apis', async (req: Request, res: Response) => {
+    // Check if user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access Azure API Management' });
+    }
+    
+    return azureApiManagementController.registerBookMyWhipApis(req, res);
+  });
+
+  app.post('/api/azure/apim/apply-policies', async (req: Request, res: Response) => {
+    // Check if user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access Azure API Management' });
+    }
+    
+    return azureApiManagementController.applyStandardPolicies(req, res);
+  });
+
+  app.post('/api/azure/apim/create-api', async (req: Request, res: Response) => {
+    // Check if user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access Azure API Management' });
+    }
+    
+    return azureApiManagementController.createOrUpdateApi(req, res);
+  });
+
+  app.get('/api/azure/apim/analytics/:apiId', async (req: Request, res: Response) => {
+    // Check if user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access Azure API Management' });
+    }
+    
+    return azureApiManagementController.getApiAnalytics(req, res);
+  });
+
   app.post('/api/driver/status', async (req: Request, res: Response) => {
     try {
       if (!req.isAuthenticated()) {

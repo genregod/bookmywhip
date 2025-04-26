@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import MainLayout from '@/components/layout/MainLayout';
 import AdminDashboard from '@/components/admin/AdminDashboard';
+import ApiManagement from '@/components/admin/ApiManagement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -131,6 +132,7 @@ export default function Admin() {
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="rides">Rides</TabsTrigger>
+              <TabsTrigger value="api-management">API Management</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
             
