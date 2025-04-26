@@ -4,6 +4,7 @@ import { Card } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
 import { CheckCircle, XCircle, SendIcon } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 
 /**
  * Component for testing Socket.IO connection status
@@ -14,13 +15,13 @@ export function SocketConnectionStatus() {
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   
   // Connect to the selected namespace
   useEffect(() => {
     // Clean up any existing connection
     if (socketRef.current) {
-      socketRef.current.close();
+      socketRef.current.disconnect();
       socketRef.current = null;
     }
     
@@ -28,93 +29,101 @@ export function SocketConnectionStatus() {
     setLastMessage(null);
     setError(null);
     
-    // Create a new WebSocket connection
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const namespace = activeTab; // 'riders', 'drivers', or 'admin'
+    // Create a new Socket.IO connection with namespace
+    const namespace = activeTab.startsWith('/') ? activeTab : `/${activeTab}`;
     
-    console.log(`Connecting to Socket.IO at ${wsUrl} namespace: /${namespace}`);
+    console.log(`Connecting to Socket.IO namespace: ${namespace}, path: /ws`);
     
     try {
-      // Use the namespace in the URL
-      const socket = new WebSocket(`${wsUrl}/${namespace}`);
+      // Create Socket.IO instance with the proper namespace
+      const socket = io(namespace, {
+        path: '/ws',
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000
+      });
+      
       socketRef.current = socket;
       
-      socket.onopen = () => {
-        console.log('Socket.IO connected:', socketRef.current?.url);
+      socket.on('connect', () => {
+        console.log('Socket.IO connected:', socket.id);
         setConnected(true);
         setError(null);
         
-        // Send connect success message
-        socket.send(JSON.stringify({
-          type: 'authenticate',
+        // Send authenticate message
+        socket.emit('authenticate', {
           timestamp: new Date().toISOString()
-        }));
-      };
+        });
+      });
       
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Socket.IO connect success:', data.message || event.data);
-          
-          setLastMessage(
-            typeof data === 'object' 
-              ? JSON.stringify(data, null, 2)
-              : String(data)
-          );
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
-          setLastMessage(String(event.data));
-        }
-      };
+      socket.on('connect_error', (err) => {
+        console.error('Socket.IO connection error:', err.message);
+        setError(`Connection error: ${err.message}`);
+        setConnected(false);
+      });
       
-      socket.onclose = (event) => {
-        console.log('Socket.IO disconnected:', event.reason);
+      socket.on('disconnect', (reason) => {
+        console.log('Socket.IO disconnected:', reason);
         setConnected(false);
         
-        if (!event.wasClean) {
-          setError(`Connection closed unexpectedly: ${event.reason || 'Unknown reason'}`);
+        if (reason !== 'io client disconnect') {
+          setError(`Connection closed: ${reason || 'Unknown reason'}`);
         }
-      };
+      });
       
-      socket.onerror = (event) => {
-        console.error('Socket.IO error:', event);
-        setError('Connection error');
-        setConnected(false);
-      };
+      socket.on('error', (err) => {
+        console.error('Socket.IO error:', err);
+        setError(`Socket error: ${typeof err === 'string' ? err : JSON.stringify(err)}`);
+      });
+      
+      // Listen for any message
+      socket.onAny((eventName, ...args) => {
+        console.log(`Socket.IO event received: ${eventName}`, args);
+        setLastMessage(JSON.stringify({ event: eventName, data: args[0] }, null, 2));
+      });
+      
+      // Explicit handlers for specific events
+      socket.on('pong', (data) => {
+        console.log('Received pong response:', data);
+        setLastMessage(JSON.stringify({ event: 'pong', data }, null, 2));
+      });
+      
+      // Connect to the socket server
+      if (!socket.connected) {
+        socket.connect();
+      }
       
       // Clean up function
       return () => {
         console.log('Cleaning up Socket.IO connection');
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.close();
+        if (socket.connected) {
+          socket.disconnect();
         }
       };
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to connect to Socket.IO:', err);
-      setError(`Failed to connect: ${err}`);
+      setError(`Failed to connect: ${err.message}`);
       return () => {};
     }
   }, [activeTab]);
   
   // Send a ping message
   const sendPing = () => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+    if (!socketRef.current || !socketRef.current.connected) {
       setError('Not connected');
       return;
     }
     
     try {
       const message = {
-        type: 'ping',
         timestamp: Date.now()
       };
       
-      socketRef.current.send(JSON.stringify(message));
+      socketRef.current.emit('ping', message);
       console.log('Emitting Socket.IO event: ping', message);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error sending ping message:', err);
-      setError(`Failed to send message: ${err}`);
+      setError(`Failed to send message: ${err.message}`);
     }
   };
   
