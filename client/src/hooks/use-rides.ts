@@ -98,7 +98,7 @@ export function useRides(): UseRidesResult {
   } = useQuery<Ride | null>({ 
     queryKey: ['/api/rides/active'],
     enabled: !!user, // Only fetch if logged in
-    refetchInterval: activeRide ? 5000 : false, // Poll for updates when active
+    refetchInterval: 5000, // Poll for updates every 5 seconds
   });
 
   // Create ride mutation
