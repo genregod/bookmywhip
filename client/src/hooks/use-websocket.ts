@@ -49,18 +49,14 @@ export function useWebSocket(options: UseSocketOptions = defaultOptions): UseWeb
     }
     
     try {
-      // Determine the WebSocket URL based on current protocol/host
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      
       // Create Socket.IO connection with namespacing
       const namespace = mergedOptions.namespace!.startsWith('/') 
-        ? mergedOptions.namespace!.substring(1) 
-        : mergedOptions.namespace!;
+        ? mergedOptions.namespace!
+        : `/${mergedOptions.namespace!}`;
       
-      console.log(`Connecting to Socket.IO at path: /ws, namespace: /${namespace}`);
+      console.log(`Connecting to Socket.IO namespace: ${namespace}, path: /ws`);
       
-      socketRef.current = io(`/${namespace}`, {
+      socketRef.current = io(namespace, {
         path: '/ws',
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
@@ -159,7 +155,7 @@ export function useWebSocket(options: UseSocketOptions = defaultOptions): UseWeb
       return;
     }
     
-    if (!socketRef.current || !connected) {
+    if (!socketRef.current || !socketRef.current.connected) {
       console.warn('Cannot send message - socket not connected');
       return;
     }
