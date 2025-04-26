@@ -18,6 +18,8 @@ interface StepProps {
   title: string;
   description?: string;
   children: React.ReactNode;
+  isLastStep?: boolean;
+  state?: string;
 }
 
 // Stepper component props
