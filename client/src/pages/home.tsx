@@ -16,13 +16,16 @@ export default function Home() {
   const { currentLocation } = useLocation();
   const [showRideModal, setShowRideModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Safely handle activeRide
+  const rideActive = Boolean(activeRide);
 
   // Automatically show ride status modal if there's an active ride
   useEffect(() => {
-    if (activeRide && user?.role === 'rider') {
+    if (rideActive && user?.role === 'rider') {
       setShowRideModal(true);
     }
-  }, [activeRide, user]);
+  }, [rideActive, user]);
 
   // When a ride is booked, handle the UI state
   const handleBookRide = () => {
@@ -54,7 +57,7 @@ export default function Home() {
             {/* Map Container */}
             <div className="bg-gray-200 flex-1 relative map-container">
               <MapView 
-                markers={activeRide ? [
+                markers={activeRide && activeRide.pickupLatitude ? [
                   { 
                     lat: activeRide.pickupLatitude, 
                     lng: activeRide.pickupLongitude, 
