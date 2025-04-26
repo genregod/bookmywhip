@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -19,9 +20,28 @@ import LoadingIndicator from "@/components/shared/LoadingIndicator";
 // Protected route component
 function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: any) {
   const { user, isLoading } = useAuth();
+  const [timeoutOccurred, setTimeoutOccurred] = useState(false);
+  
+  // Set a timeout to avoid being stuck on loading
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLoading) {
+      timer = setTimeout(() => {
+        setTimeoutOccurred(true);
+      }, 5000); // 5 seconds timeout
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isLoading]);
 
-  if (isLoading) {
-    return <LoadingIndicator message="Loading..." />;
+  if (isLoading && !timeoutOccurred) {
+    return <LoadingIndicator message="Loading your BookMyWhip experience..." />;
+  }
+  
+  if (timeoutOccurred && isLoading) {
+    // Fallback if loading takes too long
+    return <Redirect to="/login" />;
   }
 
   if (!user) {
@@ -38,9 +58,28 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
 // Public route component (redirects if logged in)
 function PublicRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
+  const [timeoutOccurred, setTimeoutOccurred] = useState(false);
+  
+  // Set a timeout to avoid being stuck on loading
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLoading) {
+      timer = setTimeout(() => {
+        setTimeoutOccurred(true);
+      }, 5000); // 5 seconds timeout
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isLoading]);
 
-  if (isLoading) {
-    return <LoadingIndicator message="Loading..." />;
+  if (isLoading && !timeoutOccurred) {
+    return <LoadingIndicator message="Welcome to BookMyWhip" />;
+  }
+  
+  // If loading for too long, just show the component
+  if (timeoutOccurred && isLoading) {
+    return <Component {...rest} />;
   }
 
   if (user) {
