@@ -461,15 +461,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const newRide = await storage.createRide(rideData);
       
-      // Notify available drivers about new ride request
+      // Notify available drivers about new ride request using Socket.IO
       // In a real app, we would implement proximity-based notification
-      clients.forEach((ws, userId) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'new_ride_request',
-            rideId: newRide.id
-          }));
-        }
+      driverNamespace.emit('new_ride_request', {
+        rideId: newRide.id,
+        pickupLocation: {
+          latitude: newRide.pickupLatitude,
+          longitude: newRide.pickupLongitude,
+          address: newRide.pickupAddress
+        },
+        destinationLocation: {
+          latitude: newRide.destinationLatitude,
+          longitude: newRide.destinationLongitude,
+          address: newRide.destinationAddress
+        },
+        estimatedFare: newRide.estimatedFare,
+        estimatedDistance: newRide.estimatedDistance,
+        estimatedDuration: newRide.estimatedDuration,
+        timestamp: new Date().toISOString()
       });
       
       res.status(201).json(newRide);

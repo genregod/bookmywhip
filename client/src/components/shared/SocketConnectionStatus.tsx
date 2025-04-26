@@ -1,131 +1,184 @@
-import { useState, useEffect } from 'react';
-import { useWebSocket } from '@/hooks/use-websocket';
-import { Button } from '@/components/ui/button';
-import { WS_MESSAGE_TYPES } from '@/lib/constants';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Badge } from '../ui/badge';
+import { CheckCircle, XCircle, SendIcon } from 'lucide-react';
 
 /**
- * Component to display the current Socket.IO connection status
- * and allow testing basic functionality
+ * Component for testing Socket.IO connection status
+ * Allows connecting to different namespaces and sending test messages
  */
 export function SocketConnectionStatus() {
-  const { toast } = useToast();
-  const [socketOptions, setSocketOptions] = useState({
-    namespace: '/riders',
-    mockMode: false
-  });
-  const { connected, sendMessage, lastMessage, error } = useWebSocket(socketOptions);
-  const [messageCount, setMessageCount] = useState(0);
-
-  // Track received messages
+  const [activeTab, setActiveTab] = useState('riders');
+  const [connected, setConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  
+  // Connect to the selected namespace
   useEffect(() => {
-    if (lastMessage) {
-      setMessageCount(prev => prev + 1);
+    // Clean up any existing connection
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
     }
-  }, [lastMessage]);
-
-  // Send a ping to test connection
-  const handlePing = () => {
-    sendMessage({
-      type: WS_MESSAGE_TYPES.PING,
-      timestamp: Date.now()
-    });
-    toast({
-      title: 'Ping sent',
-      description: 'Waiting for server response...'
-    });
+    
+    setConnected(false);
+    setLastMessage(null);
+    setError(null);
+    
+    // Create a new WebSocket connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${activeTab}`;
+    
+    console.log(`Connecting to Socket.IO at ${wsUrl}`);
+    
+    try {
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
+      
+      socket.onopen = () => {
+        console.log('Socket.IO connected:', socketRef.current?.url);
+        setConnected(true);
+        setError(null);
+        
+        // Send connect success message
+        socket.send(JSON.stringify({
+          type: 'authenticate',
+          timestamp: new Date().toISOString()
+        }));
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Socket.IO connect success:', data.message || event.data);
+          
+          setLastMessage(
+            typeof data === 'object' 
+              ? JSON.stringify(data, null, 2)
+              : String(data)
+          );
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
+          setLastMessage(String(event.data));
+        }
+      };
+      
+      socket.onclose = (event) => {
+        console.log('Socket.IO disconnected:', event.reason);
+        setConnected(false);
+        
+        if (!event.wasClean) {
+          setError(`Connection closed unexpectedly: ${event.reason || 'Unknown reason'}`);
+        }
+      };
+      
+      socket.onerror = (event) => {
+        console.error('Socket.IO error:', event);
+        setError('Connection error');
+        setConnected(false);
+      };
+      
+      // Clean up function
+      return () => {
+        console.log('Cleaning up Socket.IO connection');
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.close();
+        }
+      };
+    } catch (err) {
+      console.error('Failed to connect to Socket.IO:', err);
+      setError(`Failed to connect: ${err}`);
+      return () => {};
+    }
+  }, [activeTab]);
+  
+  // Send a ping message
+  const sendPing = () => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setError('Not connected');
+      return;
+    }
+    
+    try {
+      const message = {
+        type: 'ping',
+        timestamp: Date.now()
+      };
+      
+      socketRef.current.send(JSON.stringify(message));
+      console.log('Emitting Socket.IO event: ping', message);
+    } catch (err) {
+      console.error('Error sending ping message:', err);
+      setError(`Failed to send message: ${err}`);
+    }
   };
-
-  // Handle namespace change
-  const changeNamespace = (namespace: string) => {
-    setSocketOptions(prev => ({
-      ...prev,
-      namespace
-    }));
-    toast({
-      title: 'Namespace changed',
-      description: `Connecting to ${namespace} namespace`
-    });
-  };
-
-  // Toggle mock mode
-  const toggleMockMode = () => {
-    setSocketOptions(prev => ({
-      ...prev,
-      mockMode: !prev.mockMode
-    }));
-    toast({
-      title: `${socketOptions.mockMode ? 'Enabling real' : 'Enabling mock'} connection`,
-      description: socketOptions.mockMode ? 'Connecting to actual Socket.IO server' : 'Using mock Socket.IO communication'
-    });
-  };
-
+  
   return (
-    <div className="bg-muted/20 p-4 rounded-lg border border-border">
-      <h3 className="text-lg font-medium mb-2">Socket.IO Connection Status</h3>
-      
-      <div className="flex items-center gap-2 mb-4">
-        <div 
-          className={`w-3 h-3 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
-          title={connected ? 'Connected' : 'Disconnected'}
-        />
-        <span className="text-sm">
-          {connected ? 'Connected' : 'Disconnected'} 
-          {socketOptions.mockMode && ' (Mock Mode)'}
-        </span>
-      </div>
-      
-      {error && (
-        <div className="mb-4 p-2 bg-destructive/10 text-destructive rounded text-sm">
-          {error}
+    <Card className="p-4">
+      <Tabs 
+        defaultValue="riders" 
+        value={activeTab} 
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium">Socket.IO Connection Tester</h3>
+          <Badge variant={connected ? 'default' : 'destructive'}>
+            {connected ? 'Connected' : 'Disconnected'}
+          </Badge>
         </div>
-      )}
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-        <Button 
-          size="sm" 
-          variant={socketOptions.namespace === '/riders' ? 'default' : 'outline'}
-          onClick={() => changeNamespace('/riders')}
-        >
-          Riders
-        </Button>
-        <Button 
-          size="sm"
-          variant={socketOptions.namespace === '/drivers' ? 'default' : 'outline'}
-          onClick={() => changeNamespace('/drivers')}
-        >
-          Drivers
-        </Button>
-        <Button 
-          size="sm"
-          variant={socketOptions.namespace === '/admin' ? 'default' : 'outline'}
-          onClick={() => changeNamespace('/admin')}
-        >
-          Admin
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={toggleMockMode}
-        >
-          {socketOptions.mockMode ? 'Use Real Connection' : 'Use Mock Mode'}
-        </Button>
-      </div>
-      
-      <div className="flex gap-2 mb-4">
-        <Button onClick={handlePing} size="sm" disabled={!connected}>
-          Send Ping
-        </Button>
-      </div>
-      
-      <div className="text-sm">
-        <p>Messages received: {messageCount}</p>
+        
+        <TabsList className="w-full mb-4">
+          <TabsTrigger value="riders" className="flex-1">Riders</TabsTrigger>
+          <TabsTrigger value="drivers" className="flex-1">Drivers</TabsTrigger>
+          <TabsTrigger value="admin" className="flex-1">Admin</TabsTrigger>
+        </TabsList>
+        
+        <div className="mb-4">
+          <div className="flex items-center space-x-2 text-sm">
+            <span className="text-muted-foreground">Status:</span>
+            <div className="flex items-center">
+              {connected ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                  <span className="text-green-500">Connected to {activeTab} namespace</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 text-red-500 mr-1" />
+                  <span className="text-red-500">
+                    {error || `Not connected to ${activeTab} namespace`}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-between mb-4">
+          <Button
+            size="sm"
+            onClick={sendPing}
+            disabled={!connected}
+            className="flex items-center"
+          >
+            <SendIcon className="mr-1 h-4 w-4" />
+            Send Ping
+          </Button>
+        </div>
+        
         {lastMessage && (
-          <div className="mt-2 p-2 bg-muted rounded-sm overflow-x-auto max-h-24">
-            <pre className="text-xs">{JSON.stringify(lastMessage, null, 2)}</pre>
+          <div className="mt-4">
+            <div className="text-sm text-muted-foreground mb-1">Last message:</div>
+            <pre className="bg-muted text-xs p-2 rounded max-h-32 overflow-auto">
+              {lastMessage}
+            </pre>
           </div>
         )}
-      </div>
-    </div>
+      </Tabs>
+    </Card>
   );
 }

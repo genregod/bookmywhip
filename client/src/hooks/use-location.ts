@@ -1,118 +1,108 @@
-import { useState, useCallback, useEffect } from 'react';
-import { DEFAULT_MAP_CENTER } from '@/lib/constants';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-type LocationError = 'denied' | 'unavailable' | 'timeout' | 'unknown';
-
-interface LocationState {
+interface LocationData {
   latitude: number;
   longitude: number;
   accuracy?: number;
-  heading?: number;
-  speed?: number;
   timestamp?: number;
 }
 
 interface UseLocationResult {
-  currentLocation: LocationState | null;
+  currentLocation: LocationData | null;
   watchLocation: () => void;
   stopWatching: () => void;
-  error: LocationError | null;
+  error: string | null;
   isWatching: boolean;
 }
 
+/**
+ * Hook for getting and tracking the user's location
+ */
 export function useLocation(): UseLocationResult {
-  const [currentLocation, setCurrentLocation] = useState<LocationState | null>(null);
-  const [error, setError] = useState<LocationError | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isWatching, setIsWatching] = useState(false);
-  const [watchId, setWatchId] = useState<number | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
-  // Success handler for geolocation API
+  // Handle successful location acquisition
   const handleSuccess = useCallback((position: GeolocationPosition) => {
-    setError(null);
+    const { latitude, longitude, accuracy } = position.coords;
     setCurrentLocation({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      accuracy: position.coords.accuracy,
-      heading: position.coords.heading || undefined,
-      speed: position.coords.speed || undefined,
+      latitude,
+      longitude,
+      accuracy,
       timestamp: position.timestamp
     });
+    setError(null);
   }, []);
 
-  // Error handler for geolocation API
+  // Handle location errors
   const handleError = useCallback((error: GeolocationPositionError) => {
-    let errorType: LocationError = 'unknown';
-    
+    let errorMessage = '';
     switch (error.code) {
       case error.PERMISSION_DENIED:
-        errorType = 'denied';
+        errorMessage = 'User denied the request for geolocation';
         break;
       case error.POSITION_UNAVAILABLE:
-        errorType = 'unavailable';
+        errorMessage = 'Location information is unavailable';
         break;
       case error.TIMEOUT:
-        errorType = 'timeout';
+        errorMessage = 'The request to get user location timed out';
+        break;
+      default:
+        errorMessage = 'An unknown error occurred';
         break;
     }
-    
-    setError(errorType);
-    
-    // If position is completely unavailable, use default
-    if (errorType === 'unavailable' && !currentLocation) {
-      setCurrentLocation({
-        latitude: DEFAULT_MAP_CENTER.lat,
-        longitude: DEFAULT_MAP_CENTER.lng
-      });
+    setError(errorMessage);
+  }, []);
+
+  // Get current position once
+  const getCurrentPosition = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      return;
     }
-  }, [currentLocation]);
+
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0
+    });
+  }, [handleSuccess, handleError]);
 
   // Start watching position
   const watchLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setError('unavailable');
+      setError('Geolocation is not supported by your browser');
       return;
     }
 
-    // Clear any existing watch
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-    }
-
-    // Get initial position
-    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    });
-
-    // Start watching position
-    const id = navigator.geolocation.watchPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    });
-
-    setWatchId(id);
     setIsWatching(true);
-  }, [handleSuccess, handleError, watchId]);
+    const watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0
+    });
+    watchIdRef.current = watchId;
+  }, [handleSuccess, handleError]);
 
   // Stop watching position
   const stopWatching = useCallback(() => {
-    if (watchId !== null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchId);
-      setWatchId(null);
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
       setIsWatching(false);
     }
-  }, [watchId]);
+  }, []);
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      if (watchId !== null && navigator.geolocation) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [watchId]);
+  }, []);
 
   return {
     currentLocation,

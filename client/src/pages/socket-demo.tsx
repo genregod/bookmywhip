@@ -1,72 +1,110 @@
-import { useEffect } from 'react';
-import { SocketConnectionStatus } from '@/components/shared/SocketConnectionStatus';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RideTracker } from "@/components/shared/RideTracker";
+import { SocketConnectionStatus } from "@/components/shared/SocketConnectionStatus";
 
+/**
+ * Demo page for testing WebSocket functionality
+ * Provides components to test different WebSocket features
+ */
 export default function SocketDemo() {
-  const { toast } = useToast();
-
-  useEffect(() => {
-    toast({
-      title: 'Socket.IO Demo',
-      description: 'Use this page to test Socket.IO connectivity in different namespaces'
-    });
-  }, []);
-
+  const [activeTab, setActiveTab] = useState('connection');
+  
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-6 text-primary">Socket.IO Connection Demo</h1>
-      
-      <div className="mb-8">
-        <p className="mb-4">
-          This page demonstrates the BookMyWhip platform's Socket.IO implementation, 
-          which provides real-time communication between riders, drivers, and the system.
+    <div className="container py-10 space-y-8">
+      <div className="flex flex-col items-center space-y-4 text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Socket.IO Connection Demo</h1>
+        <p className="text-muted-foreground">
+          Test the real-time communication capabilities of the BookMyWhip platform
         </p>
-        <p className="mb-4">
-          You can test different namespaces and observe the connection status and message exchange.
-          The Socket.IO server is configured with three separate namespaces:
-        </p>
-        <ul className="list-disc list-inside mb-4 ml-4">
-          <li><strong>/riders</strong> - For rider clients (booking rides, receiving driver updates)</li>
-          <li><strong>/drivers</strong> - For driver clients (accepting rides, sending location updates)</li>
-          <li><strong>/admin</strong> - For administrative monitoring and operations</li>
-        </ul>
       </div>
       
-      <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Connection Testing</h2>
-          <SocketConnectionStatus />
-        </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="connection">Socket Status</TabsTrigger>
+          <TabsTrigger value="ride-tracker">Ride Tracker</TabsTrigger>
+        </TabsList>
         
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Socket.IO Features</h2>
-          <div className="bg-muted/20 p-4 rounded-lg border border-border">
-            <h3 className="font-medium mb-2">Implemented Enhancements</h3>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Automatic reconnection with configurable attempts</li>
-              <li>Dedicated namespaces for user roles</li>
-              <li>User-specific rooms for targeted messaging</li>
-              <li>Authentication on connection</li>
-              <li>Heartbeat with configurable intervals</li>
-              <li>Connection state management</li>
-              <li>Better error handling and reporting</li>
-              <li>Mock mode for development/testing</li>
-            </ul>
+        <TabsContent value="connection" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Socket.IO Connection Testing</CardTitle>
+              <CardDescription>
+                Connect to different WebSocket namespaces and monitor their status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SocketConnectionStatus />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>WebSocket Connection Details</CardTitle>
+              <CardDescription>
+                Technical information about Socket.IO implementation
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div>
+                <div className="font-medium">Namespace Structure:</div>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li><code>/ws/riders</code> - For rider clients</li>
+                  <li><code>/ws/drivers</code> - For driver clients</li>
+                  <li><code>/ws/admin</code> - For administrative dashboards</li>
+                </ul>
+              </div>
+              
+              <div>
+                <div className="font-medium">Common Message Types:</div>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li><code>authenticate</code> - Authenticate the connection</li>
+                  <li><code>ride_request</code> - New ride request created</li>
+                  <li><code>ride_accepted</code> - Driver accepted a ride</li>
+                  <li><code>ride_started</code> - Ride has begun</li>
+                  <li><code>ride_completed</code> - Ride finished successfully</li>
+                  <li><code>ride_cancelled</code> - Ride was cancelled</li>
+                  <li><code>location_update</code> - Driver/rider position changed</li>
+                  <li><code>ping</code> - Test connection with a ping</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="ride-tracker" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Rider View</CardTitle>
+                <CardDescription>
+                  Monitor a ride from the rider's perspective
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RideTracker mode="rider" demoMode={true} />
+              </CardContent>
+            </Card>
             
-            <h3 className="font-medium mt-4 mb-2">Event Types</h3>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              <div>• ride_request</div>
-              <div>• ride_accepted</div>
-              <div>• ride_started</div>
-              <div>• ride_completed</div>
-              <div>• ride_cancelled</div>
-              <div>• driver_location_update</div>
-              <div>• driver_status_update</div>
-              <div>• new_ride_request</div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Driver View</CardTitle>
+                <CardDescription>
+                  Monitor a ride from the driver's perspective
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RideTracker mode="driver" demoMode={true} />
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

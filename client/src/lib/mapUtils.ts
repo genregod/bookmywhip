@@ -1,232 +1,245 @@
-import { BASE_FARE, PER_MILE_RATE, PER_MINUTE_RATE } from './constants';
-
 /**
- * Format a distance in miles to a human-readable string
- * @param distance Distance in miles
+ * Format distance in kilometers or meters
+ * @param distance Distance in kilometers
  * @returns Formatted distance string
  */
 export function formatDistance(distance: number): string {
   if (distance < 0.1) {
-    // Convert to feet for very short distances
-    const feet = Math.round(distance * 5280);
-    return `${feet} ft`;
-  } else if (distance < 10) {
-    // Show one decimal place for distances less than 10 miles
-    return `${distance.toFixed(1)} mi`;
-  } else {
-    // No decimal places for longer distances
-    return `${Math.round(distance)} mi`;
+    // Convert to meters for very short distances
+    return `${Math.round(distance * 1000)}m`;
   }
+  
+  return `${distance.toFixed(1)}km`;
 }
 
 /**
- * Format a duration in minutes to a human-readable string
+ * Format an address string for display purposes
+ * If the address is too long, truncate it and add ellipsis
+ * 
+ * @param address The full address string
+ * @param maxLength Maximum length before truncation (default: 40)
+ * @returns Formatted address string
+ */
+export function formatAddress(address: string, maxLength: number = 40): string {
+  if (!address) return '';
+  
+  // Remove extra whitespace
+  const trimmedAddress = address.trim().replace(/\s+/g, ' ');
+  
+  // Truncate if necessary
+  if (trimmedAddress.length > maxLength) {
+    return trimmedAddress.substring(0, maxLength) + '...';
+  }
+  
+  return trimmedAddress;
+}
+
+/**
+ * Format duration in minutes
  * @param minutes Duration in minutes
  * @returns Formatted duration string
  */
 export function formatDuration(minutes: number): string {
-  if (minutes < 1) {
-    // Convert to seconds for very short durations
-    const seconds = Math.round(minutes * 60);
-    return `${seconds} sec`;
-  } else if (minutes < 60) {
-    // Show just minutes for durations less than an hour
-    return `${Math.round(minutes)} min`;
-  } else {
-    // Show hours and minutes for longer durations
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = Math.round(minutes % 60);
-    return `${hours}h ${remainingMinutes}m`;
+  if (minutes < 60) {
+    return `${Math.round(minutes)}min`;
   }
+  
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
+  
+  return `${hours}h ${remainingMinutes}min`;
 }
 
 /**
- * Calculate the estimated fare for a ride
- * There are two ways to call this function:
- * 1. With distance, duration, and vehicleType
- * 2. With distance, duration, baseFare, perMileRate, and perMinuteRate
- * 
- * @param distance Distance in miles
- * @param duration Duration in minutes
- * @param vehicleTypeOrBaseFare Vehicle type ('economy' or 'premium') or base fare
- * @param perMileRate Per mile rate (optional if vehicleType is provided)
- * @param perMinuteRate Per minute rate (optional if vehicleType is provided)
+ * Calculate distance between two coordinates using the Haversine formula
+ * @param lat1 Latitude of first point
+ * @param lon1 Longitude of first point
+ * @param lat2 Latitude of second point
+ * @param lon2 Longitude of second point
+ * @returns Distance in kilometers
+ */
+export function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Convert degrees to radians
+ * @param degrees Angle in degrees
+ * @returns Angle in radians
+ */
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+/**
+ * Estimate travel time based on distance and average speed
+ * @param distanceKm Distance in kilometers
+ * @param speedKmh Average speed in km/h (defaults to 30 km/h for urban areas)
+ * @returns Estimated travel time in minutes
+ */
+export function estimateDuration(
+  distanceKm: number,
+  speedKmh: number = 30
+): number {
+  // Calculate hours: distance / speed
+  const hours = distanceKm / speedKmh;
+  
+  // Convert to minutes and round to nearest minute
+  const minutes = Math.round(hours * 60);
+  
+  // Add a base time for pickup (2 minutes)
+  return minutes + 2;
+}
+
+/**
+ * Estimate travel time based on distance and average speed
+ * @param distanceKm Distance in kilometers
+ * @param speedKmh Average speed in km/h (defaults to 30 km/h for urban areas)
+ * @returns Estimated travel time in minutes
+ */
+export function estimateTravelTime(
+  distanceKm: number,
+  speedKmh: number = 30
+): number {
+  // Time in hours = distance / speed
+  const timeHours = distanceKm / speedKmh;
+  // Convert to minutes
+  return timeHours * 60;
+}
+
+/**
+ * Calculates a simple fare estimation based on distance and time
+ * @param distanceKm Distance in kilometers
+ * @param durationMinutes Duration in minutes
+ * @param baseRate Base rate in dollars (default: $2.50)
+ * @param perKmRate Rate per kilometer in dollars (default: $1.25)
+ * @param perMinuteRate Rate per minute in dollars (default: $0.35)
  * @returns Estimated fare in dollars
+ */
+export function estimateFare(
+  distanceKm: number,
+  durationMinutes: number,
+  baseRate: number = 2.5,
+  perKmRate: number = 1.25,
+  perMinuteRate: number = 0.35
+): number {
+  const distanceCharge = distanceKm * perKmRate;
+  const timeCharge = durationMinutes * perMinuteRate;
+  const totalFare = baseRate + distanceCharge + timeCharge;
+  
+  // Round to 2 decimal places
+  return Math.round(totalFare * 100) / 100;
+}
+
+/**
+ * Calculate fare for a ride based on distance, duration, and vehicle type
+ * 
+ * @param distance Distance in kilometers
+ * @param duration Duration in minutes
+ * @param vehicleType Vehicle type (economy or premium)
+ * @returns Calculated fare in dollars
  */
 export function calculateFare(
   distance: number,
   duration: number,
-  vehicleTypeOrBaseFare: 'economy' | 'premium' | number,
-  perMileRate?: number,
-  perMinuteRate?: number
+  vehicleType: 'economy' | 'premium' = 'economy'
 ): number {
-  let baseFareValue: number;
-  let perMileRateValue: number;
-  let perMinuteRateValue: number;
+  // Base rates by vehicle type
+  const baseRates = {
+    economy: 2.5,
+    premium: 5.0
+  };
   
-  // Determine if the 3rd parameter is a vehicle type or base fare
-  if (typeof vehicleTypeOrBaseFare === 'string') {
-    // It's a vehicle type
-    baseFareValue = BASE_FARE[vehicleTypeOrBaseFare];
-    perMileRateValue = PER_MILE_RATE[vehicleTypeOrBaseFare];
-    perMinuteRateValue = PER_MINUTE_RATE[vehicleTypeOrBaseFare];
-  } else {
-    // It's a base fare
-    baseFareValue = vehicleTypeOrBaseFare;
-    perMileRateValue = perMileRate || 0;
-    perMinuteRateValue = perMinuteRate || 0;
-  }
+  // Per kilometer rates by vehicle type
+  const perKmRates = {
+    economy: 1.25,
+    premium: 2.0
+  };
   
-  const distanceFare = distance * perMileRateValue;
-  const timeFare = duration * perMinuteRateValue;
+  // Per minute rates by vehicle type
+  const perMinuteRates = {
+    economy: 0.35,
+    premium: 0.5
+  };
   
-  // Apply surge pricing factor (would come from backend in real app)
-  const surgeFactor = 1.0;
+  // Get rates for the selected vehicle type
+  const baseRate = baseRates[vehicleType];
+  const perKmRate = perKmRates[vehicleType];
+  const perMinuteRate = perMinuteRates[vehicleType];
   
-  // Calculate total fare
-  const totalFare = (baseFareValue + distanceFare + timeFare) * surgeFactor;
-  
-  // Apply service fee (fixed at 15%)
-  const serviceFee = totalFare * 0.15;
-  
-  // Round to nearest cent
-  return Math.round((totalFare + serviceFee) * 100) / 100;
+  // Use the estimateFare function with the appropriate rates
+  return estimateFare(
+    distance,
+    duration,
+    baseRate,
+    perKmRate,
+    perMinuteRate
+  );
 }
 
 /**
- * Calculate the distance between two sets of coordinates using the Haversine formula
- * @param lat1 Latitude of point 1
- * @param lng1 Longitude of point 1
- * @param lat2 Latitude of point 2
- * @param lng2 Longitude of point 2
- * @returns Distance in miles
- */
-export function calculateDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  // Radius of the Earth in miles
-  const R = 3958.8;
-  
-  // Convert latitude and longitude from degrees to radians
-  const lat1Rad = (lat1 * Math.PI) / 180;
-  const lng1Rad = (lng1 * Math.PI) / 180;
-  const lat2Rad = (lat2 * Math.PI) / 180;
-  const lng2Rad = (lng2 * Math.PI) / 180;
-  
-  // Differences in coordinates
-  const dlat = lat2Rad - lat1Rad;
-  const dlng = lng2Rad - lng1Rad;
-  
-  // Haversine formula
-  const a =
-    Math.sin(dlat / 2) ** 2 +
-    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dlng / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-  
-  return distance;
-}
-
-/**
- * Estimate travel duration based on distance
- * @param distance Distance in miles
- * @param trafficFactor Traffic factor (1.0 = normal, >1.0 = heavy traffic)
- * @returns Estimated duration in minutes
- */
-export function estimateDuration(distance: number, trafficFactor = 1.0): number {
-  // Assume average speed of 30 mph in the city
-  const averageSpeedMph = 30 / trafficFactor;
-  
-  // Calculate time in hours, then convert to minutes
-  const timeHours = distance / averageSpeedMph;
-  const timeMinutes = timeHours * 60;
-  
-  // Add a fixed time for pickup/dropoff
-  const pickupDropoffTime = 2; // minutes
-  
-  return timeMinutes + pickupDropoffTime;
-}
-
-/**
- * Generate a curved path between two points for map rendering
- * @param startLat Start latitude
- * @param startLng Start longitude
- * @param endLat End latitude
- * @param endLng End longitude
- * @param numPoints Number of points to generate in the path
- * @returns Array of lat/lng points forming a path
+ * Generate a dummy path between two points by adding intermediate waypoints
+ * This is a simplified version for demo purposes
+ * In production, we would use a proper routing API
+ * 
+ * @param startLat Starting latitude
+ * @param startLng Starting longitude
+ * @param endLat Ending latitude
+ * @param endLng Ending longitude
+ * @param pointCount Number of intermediate points to generate (default: 10)
+ * @returns Array of latitude/longitude points
  */
 export function generateDummyMapPath(
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number,
-  numPoints = 8
-): { lat: number; lng: number }[] {
-  const points: { lat: number; lng: number }[] = [];
+  pointCount: number = 10
+): Array<[number, number]> {
+  const points: Array<[number, number]> = [];
   
-  // Start point
-  points.push({ lat: startLat, lng: startLng });
+  // Add starting point
+  points.push([startLat, startLng]);
   
-  // Generate intermediate points with a slight curve
-  const latDiff = endLat - startLat;
-  const lngDiff = endLng - startLng;
-  
-  for (let i = 1; i < numPoints - 1; i++) {
-    const ratio = i / (numPoints - 1);
+  // Generate intermediate points with slight randomness
+  for (let i = 1; i <= pointCount; i++) {
+    const ratio = i / (pointCount + 1);
     
-    // Add a slight curve to the path
-    const curveStrength = 0.005; // Adjust for more or less curve
-    const curveFactor = Math.sin(ratio * Math.PI) * curveStrength;
+    // Linear interpolation between start and end
+    const lat = startLat + (endLat - startLat) * ratio;
+    const lng = startLng + (endLng - startLng) * ratio;
     
-    // Perpendicular offset direction
-    const perpLat = -lngDiff;
-    const perpLng = latDiff;
+    // Add some randomness to make the path look more realistic
+    // We use deterministic "randomness" based on the coordinates
+    // This ensures the path is always the same for the same start/end points
+    const seed = (lat * 1000 + lng) * i;
+    const latOffset = (Math.sin(seed) * 0.001); // ~100m offset
+    const lngOffset = (Math.cos(seed) * 0.001);
     
-    // Normalize the perpendicular vector
-    const length = Math.sqrt(perpLat * perpLat + perpLng * perpLng);
-    const normPerpLat = perpLat / length;
-    const normPerpLng = perpLng / length;
-    
-    const point = {
-      lat: startLat + latDiff * ratio + normPerpLat * curveFactor,
-      lng: startLng + lngDiff * ratio + normPerpLng * curveFactor
-    };
-    
-    points.push(point);
+    points.push([lat + latOffset, lng + lngOffset]);
   }
   
-  // End point
-  points.push({ lat: endLat, lng: endLng });
+  // Add ending point
+  points.push([endLat, endLng]);
   
   return points;
-}
-
-/**
- * Format an address for better display
- * @param address The full address to format
- * @returns Formatted address string
- */
-export function formatAddress(address: string): string {
-  // If address is missing or too short, return as is
-  if (!address || address.length < 5) return address;
-  
-  // Remove any country information for cleaner display (assuming US addresses)
-  const withoutCountry = address.replace(/,\s*USA$|,\s*United States$/i, '');
-  
-  // If the address is too long, try to truncate with ellipsis
-  if (withoutCountry.length > 40) {
-    const parts = withoutCountry.split(',');
-    if (parts.length > 2) {
-      // Keep just the street address and city
-      return `${parts[0].trim()}, ${parts[parts.length - 2].trim()}`;
-    }
-    // Truncate with ellipsis
-    return withoutCountry.substring(0, 37) + '...';
-  }
-  
-  return withoutCountry;
 }
