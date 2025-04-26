@@ -119,7 +119,33 @@ function Router() {
 // Import the AuthProvider
 import { AuthProvider } from './providers/AuthProvider';
 
+// Create a simpler provider structure for demo routes
+function DemoRoutes() {
+  return (
+    <Switch>
+      <Route path="/demo" component={Demo} />
+      <Route path="*">
+        <Redirect to="/demo" />
+      </Route>
+    </Switch>
+  );
+}
+
 function App() {
+  // Use a demo version for simplicity and to avoid authentication issues
+  const isDemoMode = window.location.pathname.includes('/demo');
+  
+  if (isDemoMode) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <DemoRoutes />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
