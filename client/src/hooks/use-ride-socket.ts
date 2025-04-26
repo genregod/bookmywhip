@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useAuth } from '@/hooks/use-auth';
 import { WS_MESSAGE_TYPES } from '@/lib/constants';
-import { useToast } from '@/hooks/use-toast';
+import { showRideNotification, NotificationEventType } from '@/lib/notifications';
 
 type RideStatus = 'requested' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 
@@ -38,7 +38,6 @@ interface UseRideSocketResult {
  */
 export function useRideSocket(): UseRideSocketResult {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [namespace, setNamespace] = useState<string>('/riders');
   const [lastEvent, setLastEvent] = useState<RideEvent | null>(null);
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
@@ -69,8 +68,43 @@ export function useRideSocket(): UseRideSocketResult {
     
     switch (lastMessage.type) {
       case 'ride_accepted':
+        setLastEvent({
+          type: lastMessage.type,
+          ride: lastMessage.ride,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Show notification for ride accepted
+        showRideNotification(NotificationEventType.RIDE_ACCEPTED, lastMessage.ride);
+        break;
+        
       case 'ride_started':
+        setLastEvent({
+          type: lastMessage.type,
+          ride: lastMessage.ride,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Show notification for ride started
+        showRideNotification(NotificationEventType.RIDE_STARTED, lastMessage.ride);
+        break;
+        
       case 'ride_completed':
+        setLastEvent({
+          type: lastMessage.type,
+          ride: lastMessage.ride,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Show notification for ride completed
+        showRideNotification(NotificationEventType.RIDE_COMPLETED, lastMessage.ride);
+        
+        // Show payment notification if payment was successful
+        if (lastMessage.ride?.paymentStatus === 'completed') {
+          showRideNotification(NotificationEventType.PAYMENT_COMPLETED, lastMessage.ride);
+        }
+        break;
+        
       case 'ride_cancelled':
         setLastEvent({
           type: lastMessage.type,
@@ -78,18 +112,8 @@ export function useRideSocket(): UseRideSocketResult {
           timestamp: new Date().toISOString()
         });
         
-        // Show toast notification for ride status updates
-        const statusMap: Record<string, string> = {
-          'ride_accepted': 'Driver accepted your ride',
-          'ride_started': 'Your ride has started',
-          'ride_completed': 'Your ride has been completed',
-          'ride_cancelled': 'Your ride has been cancelled'
-        };
-        
-        toast({
-          title: statusMap[lastMessage.type] || 'Ride update',
-          description: `Ride #${lastMessage.ride?.id} status updated to ${lastMessage.ride?.status}`,
-        });
+        // Show notification for ride cancelled
+        showRideNotification(NotificationEventType.RIDE_CANCELLED, lastMessage.ride);
         break;
         
       case 'driver_location_update':
@@ -99,14 +123,36 @@ export function useRideSocket(): UseRideSocketResult {
           longitude: lastMessage.longitude,
           timestamp: lastMessage.timestamp
         });
+        
+        // Only show location updates occasionally (when driver is very close)
+        if (lastMessage.isNearby) {
+          showRideNotification(NotificationEventType.DRIVER_LOCATION_UPDATE, {
+            id: lastMessage.rideId,
+            driverName: lastMessage.driverName,
+            estimatedArrival: lastMessage.estimatedArrival
+          });
+        }
+        break;
+        
+      case 'driver_arrived':
+        setLastEvent({
+          type: lastMessage.type,
+          ride: lastMessage.ride,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Show notification for driver arrival
+        showRideNotification(NotificationEventType.DRIVER_ARRIVED, lastMessage.ride);
         break;
         
       case 'new_ride_request':
         // For drivers only
         if (user?.role === 'driver') {
-          toast({
-            title: 'New ride request',
-            description: `Pickup: ${lastMessage.pickupLocation?.address}`,
+          showRideNotification(NotificationEventType.RIDE_REQUEST, {
+            id: lastMessage.rideId,
+            pickupLocation: lastMessage.pickupLocation,
+            destinationLocation: lastMessage.destinationLocation,
+            estimatedFare: lastMessage.estimatedFare
           });
           
           setLastEvent({
@@ -124,9 +170,10 @@ export function useRideSocket(): UseRideSocketResult {
         
       default:
         // Handle other message types
+        console.log(`Unhandled message type: ${lastMessage.type}`);
         break;
     }
-  }, [lastMessage, toast, user?.role]);
+  }, [lastMessage, user?.role]);
   
   // Request a new ride (riders only)
   const requestRide = useCallback((rideData: any) => {
