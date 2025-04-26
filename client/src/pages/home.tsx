@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import MapView from '@/components/maps/MapView';
 import RideBookingPanel from '@/components/rider/RideBookingPanel';
-import { RideStatusModal } from '@/components/rider/RideStatusModal';
+import RideStatusModal from '@/components/rider/RideStatusModal';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import AdminDashboard from '@/components/admin/AdminDashboard';
 import { useAuth } from '@/hooks/use-auth';

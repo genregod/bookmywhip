@@ -35,7 +35,7 @@ interface RideStatusModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function RideStatusModal({ open, onOpenChange }: RideStatusModalProps) {
+function RideStatusModal({ open, onOpenChange }: RideStatusModalProps) {
   const { activeRide, cancelRide, rateRide, isLoading } = useRides();
   const { toast } = useToast();
   const { lastMessage } = useWebSocket();
@@ -273,3 +273,5 @@ function getStatusDescription(ride: Ride): string {
       return 'Current ride information';
   }
 }
+
+export default RideStatusModal;
