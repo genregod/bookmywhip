@@ -130,44 +130,70 @@ export default function VerificationPage() {
           <p className="text-gray-600">Complete the following steps to verify your account</p>
         </div>
 
-        <Stepper 
-          activeStep={
-            activeStep === 'email' ? 0 : 
-            activeStep === 'phone' ? 1 : 
-            activeStep === 'identity' ? 2 : 3
-          }
-          className="mb-8"
-        >
-          <Step 
-            title="Email Verification" 
-            description="Verify your email address"
-            state={
-              activeStep === 'email' ? 'active' : 
-              activeStep === 'phone' || activeStep === 'identity' || activeStep === 'complete' ? 'complete' : 'inactive'
-            }
-          />
-          <Step 
-            title="Phone Verification" 
-            description="Verify your phone number"
-            state={
-              activeStep === 'phone' ? 'active' : 
-              activeStep === 'identity' || activeStep === 'complete' ? 'complete' : 'inactive'
-            }
-          />
-          <Step 
-            title="Identity Verification" 
-            description="Verify your identity documents"
-            state={
-              activeStep === 'identity' ? 'active' : 
-              activeStep === 'complete' ? 'complete' : 'inactive'
-            }
-          />
-          <Step 
-            title="Complete" 
-            description="All steps completed"
-            state={activeStep === 'complete' ? 'active' : 'inactive'}
-          />
-        </Stepper>
+        <div className="mb-8">
+          <div className="flex items-center justify-between relative">
+            {/* Email step */}
+            <div className="flex flex-col items-center w-1/4">
+              <div className={`flex items-center justify-center rounded-full h-10 w-10 ${
+                activeStep === 'email' ? 'bg-primary text-white' :
+                activeStep === 'phone' || activeStep === 'identity' || activeStep === 'complete' ? 'bg-green-500 text-white' : 'bg-gray-200'
+              }`}>
+                {activeStep === 'phone' || activeStep === 'identity' || activeStep === 'complete' ? 
+                  <CheckCircle size={16} /> : 1}
+              </div>
+              <div className="text-sm mt-2 text-center">Email</div>
+            </div>
+            
+            {/* Line between steps */}
+            <div className={`h-1 flex-1 ${
+              activeStep === 'phone' || activeStep === 'identity' || activeStep === 'complete' ? 'bg-green-500' : 'bg-gray-200'
+            }`}></div>
+            
+            {/* Phone step */}
+            <div className="flex flex-col items-center w-1/4">
+              <div className={`flex items-center justify-center rounded-full h-10 w-10 ${
+                activeStep === 'phone' ? 'bg-primary text-white' :
+                activeStep === 'identity' || activeStep === 'complete' ? 'bg-green-500 text-white' : 'bg-gray-200'
+              }`}>
+                {activeStep === 'identity' || activeStep === 'complete' ? 
+                  <CheckCircle size={16} /> : 2}
+              </div>
+              <div className="text-sm mt-2 text-center">Phone</div>
+            </div>
+            
+            {/* Line between steps */}
+            <div className={`h-1 flex-1 ${
+              activeStep === 'identity' || activeStep === 'complete' ? 'bg-green-500' : 'bg-gray-200'
+            }`}></div>
+            
+            {/* Identity step */}
+            <div className="flex flex-col items-center w-1/4">
+              <div className={`flex items-center justify-center rounded-full h-10 w-10 ${
+                activeStep === 'identity' ? 'bg-primary text-white' :
+                activeStep === 'complete' ? 'bg-green-500 text-white' : 'bg-gray-200'
+              }`}>
+                {activeStep === 'complete' ? 
+                  <CheckCircle size={16} /> : 3}
+              </div>
+              <div className="text-sm mt-2 text-center">Identity</div>
+            </div>
+            
+            {/* Line between steps */}
+            <div className={`h-1 flex-1 ${
+              activeStep === 'complete' ? 'bg-green-500' : 'bg-gray-200'
+            }`}></div>
+            
+            {/* Complete step */}
+            <div className="flex flex-col items-center w-1/4">
+              <div className={`flex items-center justify-center rounded-full h-10 w-10 ${
+                activeStep === 'complete' ? 'bg-primary text-white' : 'bg-gray-200'
+              }`}>
+                4
+              </div>
+              <div className="text-sm mt-2 text-center">Complete</div>
+            </div>
+          </div>
+        </div>
 
         {isSubmitting ? (
           <LoadingIndicator message="Processing..." />
