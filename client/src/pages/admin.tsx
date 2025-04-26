@@ -280,6 +280,10 @@ export default function Admin() {
             </Card>
           </TabsContent>
           
+          <TabsContent value="api-management">
+            <ApiManagement />
+          </TabsContent>
+          
           <TabsContent value="settings">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>

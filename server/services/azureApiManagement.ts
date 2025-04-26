@@ -1,6 +1,32 @@
 import { ApiManagementClient } from '@azure/arm-apimanagement';
 import { DefaultAzureCredential } from '@azure/identity';
-import { ApiCreateOrUpdateParameter, ApiContract } from '@azure/arm-apimanagement/esm/models';
+
+// Type declarations to fix missing types 
+interface ApiCreateOrUpdateParameter {
+  displayName: string;
+  description: string;
+  path: string;
+  protocols: string[];
+  serviceUrl: string;
+  subscriptionRequired: boolean;
+}
+
+interface ApiContract {
+  id?: string;
+  name?: string;
+  displayName?: string;
+  description?: string;
+  path?: string;
+  protocols?: string[];
+  serviceUrl?: string;
+  subscriptionRequired?: boolean;
+  apiRevision?: string;
+}
+
+interface PolicyContract {
+  format: string;
+  value: string;
+}
 
 /**
  * Azure API Management Service
