@@ -45,15 +45,12 @@ export function useWebSocket(): UseWebSocketResult {
         // Clear any existing connection
         cleanup();
         
-        // Get the host without port
-        const host = window.location.hostname;
-        // Use the default port for the server (5000)
-        const port = "5000";
-        // Use the appropriate protocol
+        // Use the current host and protocol
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host; // This includes the port if present
         
-        // Construct a valid WebSocket URL
-        const wsUrl = `${protocol}//${host}:${port}/ws`;
+        // Construct a valid WebSocket URL - don't add port to Replit URLs
+        const wsUrl = `${protocol}//${host}/ws`;
         
         console.log('Connecting to WebSocket:', wsUrl);
         
