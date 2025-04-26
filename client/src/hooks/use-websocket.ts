@@ -54,9 +54,13 @@ export function useWebSocket(options: UseSocketOptions = defaultOptions): UseWeb
       const host = window.location.host;
       
       // Create Socket.IO connection with namespacing
-      console.log(`Connecting to Socket.IO at ${protocol}//${host}/ws${mergedOptions.namespace}`);
+      const namespace = mergedOptions.namespace!.startsWith('/') 
+        ? mergedOptions.namespace!.substring(1) 
+        : mergedOptions.namespace!;
       
-      socketRef.current = io(mergedOptions.namespace!, {
+      console.log(`Connecting to Socket.IO at path: /ws, namespace: /${namespace}`);
+      
+      socketRef.current = io(`/${namespace}`, {
         path: '/ws',
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
