@@ -127,7 +127,8 @@ export default function NavigationDemo() {
   // Use the driver matching hook
   const { 
     findNearbyDriversByLocation, 
-    nearbyDrivers: matchedDrivers, 
+    nearbyDrivers: matchedDrivers,
+    updateDriverLocationById,
     isLoading: isDriverMatchLoading 
   } = useDriverMatching();
   
@@ -202,6 +203,58 @@ export default function NavigationDemo() {
     }
     
     setShowNavigation(true);
+    
+    // Start simulating driver movement towards pickup
+    simulateDriverMovement();
+  };
+  
+  // Simulate driver movement (this would be powered by real-time location updates in production)
+  const simulateDriverMovement = () => {
+    if (!selectedDriver || !userLocation) return;
+    
+    // Calculate intermediate points between driver and rider
+    const steps = 10;
+    let currentStep = 0;
+    
+    const startLat = selectedDriver.latitude;
+    const startLng = selectedDriver.longitude;
+    const endLat = userLocation[0];
+    const endLng = userLocation[1];
+    
+    const interval = setInterval(() => {
+      currentStep++;
+      
+      if (currentStep <= steps) {
+        // Calculate interpolated position
+        const ratio = currentStep / steps;
+        const newLat = startLat + (endLat - startLat) * ratio;
+        const newLng = startLng + (endLng - startLng) * ratio;
+        
+        // Update driver's position
+        updateDriverLocationById(
+          selectedDriver.id,
+          newLat,
+          newLng,
+          userLocation[0],
+          userLocation[1]
+        );
+        
+        toast({
+          title: 'Driver Update',
+          description: `${selectedDriver.name} is now ${(steps - currentStep) / steps * 100}% away from your location.`,
+        });
+      } else {
+        // Driver has arrived at pickup location
+        clearInterval(interval);
+        toast({
+          title: 'Driver Arrived',
+          description: `${selectedDriver.name} has arrived at your location!`,
+        });
+      }
+    }, 3000); // Update every 3 seconds
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(interval);
   };
   
   // Calculate estimated fare

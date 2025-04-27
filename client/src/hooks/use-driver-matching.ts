@@ -178,7 +178,11 @@ export function useDriverMatching() {
       message: "Driver location updated successfully",
       driverId,
       latitude,
-      longitude
+      longitude,
+      timestamp: new Date().toISOString(),
+      distanceMoved: 0,
+      calculatedSpeed: 0,
+      heading: 0
     });
   };
   
