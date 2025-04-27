@@ -19,6 +19,64 @@ import { db } from "./db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, or } from "drizzle-orm";
 import { generatePasswordHash, verifyPassword } from "./auth";
 
+// Map utility functions for distance calculations
+// These functions are duplicated here to avoid cross-import issues between server and client code
+/**
+ * Calculate distance between two coordinates using the Haversine formula
+ */
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Convert degrees to radians
+ */
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+/**
+ * Creates a bounding box around a central point for efficient geo-queries
+ */
+function getBoundingBox(
+  centerLat: number,
+  centerLon: number,
+  radiusKm: number
+): {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+} {
+  // Earth's radius in km
+  const R = 6371;
+  
+  // Angular distance in radians on a great circle
+  const angularDistance = radiusKm / R;
+  
+  // Simplified bounding box calculation (approximation)
+  // 1 degree of latitude is approximately 111 kilometers
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / (111 * Math.cos(toRadians(centerLat)));
+  
+  return {
+    minLat: centerLat - latDelta,
+    maxLat: centerLat + latDelta,
+    minLon: centerLon - lonDelta,
+    maxLon: centerLon + lonDelta
+  };
+}
+
 // Storage interface
 export interface IStorage {
   // User operations

@@ -19,6 +19,7 @@ import Admin from "@/pages/admin";
 import Demo from "@/pages/demo";
 import SocketDemo from "@/pages/socket-demo";
 import WazeDemoPage from "@/pages/waze-demo";
+import NavigationDemo from "@/pages/navigation-demo";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";

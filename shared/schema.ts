@@ -24,6 +24,12 @@ export const users = pgTable('users', {
   stripeCustomerId: text('stripe_customer_id'),
   stripeConnectedAccountId: text('stripe_connected_account_id'),
   
+  // Location and availability fields for drivers
+  isAvailable: boolean('is_available').default(false),
+  lastKnownLatitude: doublePrecision('last_known_latitude'),
+  lastKnownLongitude: doublePrecision('last_known_longitude'),
+  lastLocationUpdate: timestamp('last_location_update'),
+  
   // Verification fields
   isEmailVerified: boolean('is_email_verified').default(false),
   emailVerificationToken: text('email_verification_token'),
