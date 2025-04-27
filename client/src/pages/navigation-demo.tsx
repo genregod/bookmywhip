@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Car, Navigation, MapPin, User, Users } from 'lucide-react';
 import { Icon } from 'leaflet';
 import { WazeEmbeddedNavigation } from '@/components/maps/WazeEmbeddedNavigation';
+import { useDriverMatching } from '@/hooks/use-driver-matching';
 import { 
   calculateDistance, 
   formatDistance, 
@@ -123,20 +124,41 @@ export default function NavigationDemo() {
     }
   }, [toast]);
   
+  // Use the driver matching hook
+  const { 
+    findNearbyDriversByLocation, 
+    nearbyDrivers: matchedDrivers, 
+    isLoading: isDriverMatchLoading 
+  } = useDriverMatching();
+  
   // Find nearby drivers when user location changes or search parameters change
   useEffect(() => {
     if (userLocation) {
-      // Using our utility functions to find nearby drivers
-      const driversWithDistance = findNearbyPoints(
-        userLocation[0],
-        userLocation[1],
-        mockDrivers.filter(d => d.vehicleType === vehicleType),
-        searchRadius
-      );
-      
-      setNearbyDrivers(driversWithDistance);
+      // Use the driver matching hook to find nearby drivers
+      findNearbyDriversByLocation({
+        latitude: userLocation[0],
+        longitude: userLocation[1],
+        radius: searchRadius,
+        vehicleType,
+        limit: 10
+      }).catch(error => {
+        console.error('Error finding nearby drivers:', error);
+        
+        toast({
+          title: 'Driver Matching Error',
+          description: 'Could not connect to the driver matching service. Using local data.',
+          variant: 'destructive',
+        });
+      });
     }
-  }, [userLocation, searchRadius, vehicleType]);
+  }, [userLocation, searchRadius, vehicleType, findNearbyDriversByLocation, toast]);
+  
+  // Update the local state when matched drivers change
+  useEffect(() => {
+    if (matchedDrivers.length > 0) {
+      setNearbyDrivers(matchedDrivers);
+    }
+  }, [matchedDrivers]);
   
   // Handle destination click on map
   const handleMapClick = (e: any) => {
