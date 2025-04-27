@@ -31,7 +31,7 @@ interface RideMapProps {
   userLocation?: [number, number];
 }
 
-export default function RideMap({
+export function RideMap({
   pickup,
   dropoff,
   driver,
