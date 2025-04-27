@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "value": "bookmywhip"
+    },
+    "appServicePlanName": {
+      "value": "bookmywhip-asp"
+    },
+    "functionAppName": {
+      "value": "bookmywhip-func"
+    },
+    "storageAccountName": {
+      "value": "bookmywhipstorage"
+    },
+    "appInsightsName": {
+      "value": "bookmywhip-insights"
+    },
+    "signalRName": {
+      "value": "bookmywhip-signalr"
+    },
+    "apiManagementName": {
+      "value": "bookmywhip-apim"
+    },
+    "apiManagementPublisherEmail": {
+      "value": "admin@bookmywhip.com"
+    },
+    "apiManagementPublisherName": {
+      "value": "BookMyWhip"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "appServicePlanSku": {
+      "value": "Y1"
+    },
+    "signalRSku": {
+      "value": "Free_F1"
+    },
+    "apiManagementSku": {
+      "value": "Developer"
+    },
+    "apiManagementSkuCount": {
+      "value": 1
+    }
+  }
+}
