@@ -33,8 +33,8 @@ export default function WazeDemoNavMenu() {
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           {navItems.map((item) => (
             <Link key={item.path} href={item.path}>
-              <a 
-                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              <span 
+                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                   isActive(item.path) 
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -42,7 +42,7 @@ export default function WazeDemoNavMenu() {
               >
                 {item.icon}
                 {item.name}
-              </a>
+              </span>
             </Link>
           ))}
         </div>

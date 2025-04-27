@@ -32,10 +32,22 @@ export function getWazeDeepLink(latitude: number, longitude: number, name?: stri
  * @param latitude - Destination latitude
  * @param longitude - Destination longitude
  * @param name - Optional location name/address
+ * @param embedded - Whether to use embedded navigation or open in a new tab
+ * @returns If embedded is true, returns the URL for iframe embedding
  */
-export function navigateWithWaze(latitude: number, longitude: number, name?: string): void {
+export function navigateWithWaze(
+  latitude: number, 
+  longitude: number, 
+  name?: string, 
+  embedded: boolean = false
+): string | void {
   const wazeUrl = getWazeDeepLink(latitude, longitude, name);
-  window.open(wazeUrl, '_blank');
+  
+  if (embedded) {
+    return wazeUrl;
+  } else {
+    window.open(wazeUrl, '_blank');
+  }
 }
 
 /**
@@ -74,14 +86,22 @@ export function getWazeRouteDeepLink(
  * @param toLat - Destination latitude
  * @param toLon - Destination longitude
  * @param name - Optional destination name
+ * @param embedded - Whether to use embedded navigation or open in a new tab
+ * @returns If embedded is true, returns the URL for iframe embedding
  */
 export function navigateRouteWithWaze(
   fromLat: number, 
   fromLon: number, 
   toLat: number, 
   toLon: number,
-  name?: string
-): void {
+  name?: string,
+  embedded: boolean = false
+): string | void {
   const wazeUrl = getWazeRouteDeepLink(fromLat, fromLon, toLat, toLon, name);
-  window.open(wazeUrl, '_blank');
+  
+  if (embedded) {
+    return wazeUrl;
+  } else {
+    window.open(wazeUrl, '_blank');
+  }
 }

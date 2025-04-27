@@ -4,12 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { getWazeDeepLink, navigateWithWaze, getWazeRouteDeepLink, navigateRouteWithWaze } from '@/lib/wazeIntegration';
 import MapDisplay from '@/components/maps/MapDisplay';
 import { RideMap } from '@/components/maps/RideMap';
+import { WazeEmbeddedNavigation } from '@/components/maps/WazeEmbeddedNavigation';
 import { MusicPreferences } from '@/components/audio/MusicPreferences';
 import { RideAudioSelector } from '@/components/audio/RideAudioSelector';
-import { ExternalLink, Navigation, Map, Music } from 'lucide-react';
+import { ExternalLink, Navigation, Map, Music, Layers } from 'lucide-react';
 import WazeDemoNavMenu from '@/components/demo/WazeDemoNavMenu';
 
 export default function WazeDemo() {
@@ -75,6 +77,9 @@ export default function WazeDemo() {
         <TabsList className="w-full mb-8">
           <TabsTrigger value="deep-links" className="flex-1">
             <Navigation className="mr-2 h-4 w-4" /> Waze Deep Links
+          </TabsTrigger>
+          <TabsTrigger value="embedded" className="flex-1">
+            <Layers className="mr-2 h-4 w-4" /> Embedded Navigation
           </TabsTrigger>
           <TabsTrigger value="maps" className="flex-1">
             <Map className="mr-2 h-4 w-4" /> Maps Integration
