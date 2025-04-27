@@ -28,6 +28,104 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const clients = new Map<number, string>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Audio preferences routes
+  app.get('/api/users/:id/audio-preferences', async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      
+      // In a real implementation, fetch from database
+      // For now, return simulated preferences
+      res.json({
+        userId,
+        contentRatingPreference: 'family_friendly',
+        preferredGenres: ['pop', 'rock', 'jazz'],
+        favoriteArtists: []
+      });
+    } catch (error) {
+      console.error('Error fetching audio preferences:', error);
+      res.status(500).json({ message: 'Failed to fetch audio preferences' });
+    }
+  });
+  
+  app.post('/api/users/:id/audio-preferences', async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      const preferences = req.body;
+      
+      // In a real implementation, save to database
+      // For now, just return success
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Error saving audio preferences:', error);
+      res.status(500).json({ message: 'Failed to save audio preferences' });
+    }
+  });
+  
+  app.get('/api/audio-content', async (req: Request, res: Response) => {
+    try {
+      const ratingMax = req.query.ratingMax || 'family_friendly';
+      
+      // In a real implementation, fetch from database or music service API
+      // For now, return simulated content
+      const content = [
+        {
+          id: 'playlist1',
+          title: 'Chill Vibes',
+          artist: 'Various Artists',
+          duration: 3600,
+          coverUrl: 'https://placehold.co/400x400/4CAF50/FFFFFF/png?text=Chill+Vibes',
+          contentType: 'music',
+          contentRating: 'family_friendly',
+          sourceUrl: '#'
+        },
+        {
+          id: 'playlist2',
+          title: 'Road Trip Classics',
+          artist: 'Various Artists',
+          duration: 4500,
+          coverUrl: 'https://placehold.co/400x400/2196F3/FFFFFF/png?text=Road+Trip',
+          contentType: 'music',
+          contentRating: 'family_friendly',
+          sourceUrl: '#'
+        },
+        {
+          id: 'playlist3',
+          title: 'Hip Hop Essentials',
+          artist: 'Various Artists',
+          duration: 3200,
+          coverUrl: 'https://placehold.co/400x400/FFC107/000000/png?text=Hip+Hop',
+          contentType: 'music',
+          contentRating: 'mild',
+          sourceUrl: '#'
+        }
+      ];
+      
+      // Filter content based on rating
+      const filteredContent = content.filter(item => {
+        if (ratingMax === 'explicit') return true;
+        if (ratingMax === 'mild') return item.contentRating !== 'explicit';
+        return item.contentRating === 'family_friendly';
+      });
+      
+      res.json(filteredContent);
+    } catch (error) {
+      console.error('Error fetching audio content:', error);
+      res.status(500).json({ message: 'Failed to fetch audio content' });
+    }
+  });
+  
+  app.post('/api/rides/audio-settings', async (req: Request, res: Response) => {
+    try {
+      const { rideId, playlistId } = req.body;
+      
+      // In a real implementation, save to database
+      // For now, just return success
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Error saving ride audio settings:', error);
+      res.status(500).json({ message: 'Failed to save ride audio settings' });
+    }
+  });
   // Serve the demo page directly
   app.get('/demo-components', (req, res) => {
     res.sendFile(path.join(process.cwd(), 'client', 'demo.html'));
