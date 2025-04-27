@@ -56,7 +56,13 @@ export function useWebSocket(options: UseSocketOptions = defaultOptions): UseWeb
       
       console.log(`Connecting to Socket.IO namespace: ${namespace}, path: /ws`);
       
-      socketRef.current = io(namespace, {
+      // Get the current host from window.location, omitting any protocol
+      const host = window.location.host;
+      const url = `${window.location.protocol}//${host}${namespace}`;
+      
+      console.log(`Socket.IO connecting to: ${url}`);
+      
+      socketRef.current = io(url, {
         path: '/ws',
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
