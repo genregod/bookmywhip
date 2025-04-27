@@ -1,0 +1,37 @@
+{
+  "bindings": [
+    {
+      "authLevel": "function",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": [
+        "post"
+      ],
+      "route": "driver-location"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"
+    },
+    {
+      "type": "cosmosDB",
+      "direction": "in",
+      "name": "previousLocation",
+      "connectionStringSetting": "CosmosDBConnection",
+      "databaseName": "BookMyWhip",
+      "collectionName": "DriverLocations",
+      "partitionKey": "{driverId}",
+      "id": "{driverId}"
+    },
+    {
+      "type": "signalR",
+      "name": "signalRMessages",
+      "hubName": "locationUpdates",
+      "connectionStringSetting": "AzureSignalRConnectionString",
+      "direction": "out"
+    }
+  ],
+  "scriptFile": "index.js"
+}

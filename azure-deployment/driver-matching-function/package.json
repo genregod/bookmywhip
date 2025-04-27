@@ -1,0 +1,23 @@
+{
+  "name": "bookmywhip-driver-matching",
+  "version": "1.0.0",
+  "description": "Advanced driver-rider matching algorithm with proximity logic for BookMyWhip",
+  "main": "index.js",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "azure",
+    "functions",
+    "rideshare",
+    "proximity",
+    "geospatial"
+  ],
+  "author": "BookMyWhip",
+  "license": "MIT",
+  "dependencies": {
+    "@azure/cosmos": "^3.17.3",
+    "@azure/functions": "^3.5.1"
+  }
+}
