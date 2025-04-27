@@ -1,174 +1,216 @@
 import { useState, useEffect } from 'react';
-import AzureMapView from './AzureMapView';
-import { LocationTracker } from './LocationTracker';
-import { Ride } from '@/hooks/use-rides';
-import { useLocation } from '@/hooks/use-location';
-import { Card, CardContent } from '@/components/ui/card';
-import { formatDistance, formatDuration } from '@/lib/mapUtils';
+import MapDisplay from './MapDisplay';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { navigateWithWaze } from '@/lib/wazeIntegration';
+import { MapPin, Navigation, Car } from 'lucide-react';
 
-interface RideMapProps {
-  ride: Ride;
-  driverLocation?: { latitude: number; longitude: number } | null;
-  showDriverControls?: boolean;
-  showRiderControls?: boolean;
-  className?: string;
+interface Location {
+  latitude: number;
+  longitude: number;
+  address: string;
 }
 
-export function RideMap({
-  ride,
-  driverLocation = null,
-  showDriverControls = false,
-  showRiderControls = false, 
-  className = ''
+interface Driver {
+  id: number;
+  name: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  vehicleDetails?: string;
+}
+
+interface RideMapProps {
+  pickup: Location;
+  dropoff: Location;
+  driver?: Driver;
+  status: 'requested' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+  estimatedArrival?: string;
+  userLocation?: [number, number];
+}
+
+export default function RideMap({
+  pickup,
+  dropoff,
+  driver,
+  status,
+  estimatedArrival,
+  userLocation
 }: RideMapProps) {
-  const { currentLocation } = useLocation();
-  const [markers, setMarkers] = useState<any[]>([]);
-  const [path, setPath] = useState<any | undefined>(undefined);
+  // Calculate center point between pickup and dropoff for initial map view
+  const [mapCenter, setMapCenter] = useState<[number, number]>([
+    (pickup.latitude + dropoff.latitude) / 2,
+    (pickup.longitude + dropoff.longitude) / 2
+  ]);
   
-  // Update markers when ride details or locations change
+  // Calculate appropriate zoom level based on distance
+  const [zoom, setZoom] = useState<number>(12);
+  
+  // Set up markers array for the map
+  const [markers, setMarkers] = useState<any[]>([]);
+  
+  // Update markers and map center based on props
   useEffect(() => {
-    const newMarkers = [];
+    const newMarkers = [
+      // Pickup marker
+      {
+        position: [pickup.latitude, pickup.longitude] as [number, number],
+        title: 'Pickup Location',
+        type: 'pickup',
+        popupContent: (
+          <div>
+            <p className="text-sm text-gray-600">{pickup.address}</p>
+            <Button 
+              onClick={() => navigateWithWaze(pickup.latitude, pickup.longitude, pickup.address)}
+              className="mt-2 w-full bg-blue-500 hover:bg-blue-600"
+              size="sm"
+            >
+              Navigate to Pickup
+            </Button>
+          </div>
+        )
+      },
+      // Dropoff marker
+      {
+        position: [dropoff.latitude, dropoff.longitude] as [number, number],
+        title: 'Dropoff Location',
+        type: 'dropoff',
+        popupContent: (
+          <div>
+            <p className="text-sm text-gray-600">{dropoff.address}</p>
+            <Button 
+              onClick={() => navigateWithWaze(dropoff.latitude, dropoff.longitude, dropoff.address)}
+              className="mt-2 w-full bg-blue-500 hover:bg-blue-600"
+              size="sm"
+            >
+              Navigate to Destination
+            </Button>
+          </div>
+        )
+      }
+    ];
     
-    // Add pickup marker
-    newMarkers.push({
-      lat: ride.pickupLatitude,
-      lng: ride.pickupLongitude,
-      type: 'pickup',
-      label: 'Pickup'
-    });
-    
-    // Add destination marker
-    newMarkers.push({
-      lat: ride.destinationLatitude,
-      lng: ride.destinationLongitude,
-      type: 'destination',
-      label: 'Destination'
-    });
-    
-    // Add current rider location marker if we have it
-    if (currentLocation && showRiderControls) {
+    // Add driver marker if driver is assigned and location is available
+    if (driver && driver.location) {
       newMarkers.push({
-        lat: currentLocation.latitude,
-        lng: currentLocation.longitude,
-        type: 'rider',
-        label: 'You'
-      });
-    }
-    
-    // Add current driver location marker if we have it
-    if (driverLocation && (ride.status === 'accepted' || ride.status === 'in_progress')) {
-      newMarkers.push({
-        lat: driverLocation.latitude,
-        lng: driverLocation.longitude,
+        position: [driver.location.latitude, driver.location.longitude] as [number, number],
+        title: `Driver: ${driver.name}`,
         type: 'driver',
-        label: 'Driver'
+        popupContent: (
+          <div>
+            <p className="text-sm text-gray-600">{driver.vehicleDetails}</p>
+            {status === 'accepted' && (
+              <Badge className="mb-2 bg-blue-500">
+                {estimatedArrival ? `Arriving in ${estimatedArrival}` : 'On the way'}
+              </Badge>
+            )}
+          </div>
+        )
       });
+      
+      // If driver is assigned and in progress, center map on driver
+      if (status === 'in_progress' && driver.location) {
+        setMapCenter([driver.location.latitude, driver.location.longitude]);
+      }
     }
     
     setMarkers(newMarkers);
-    
-    // Update path based on ride status
-    if (ride.status === 'accepted') {
-      // When accepted but not yet in progress, show path from driver to pickup
-      if (driverLocation) {
-        setPath({
-          points: [
-            { lat: driverLocation.latitude, lng: driverLocation.longitude },
-            { lat: ride.pickupLatitude, lng: ride.pickupLongitude }
-          ],
-          color: '#3B82F6' // Blue
-        });
-      }
-    } else if (ride.status === 'in_progress') {
-      // When in progress, show path from current location to destination
-      const startPoint = driverLocation 
-        ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
-        : { lat: ride.pickupLatitude, lng: ride.pickupLongitude };
-        
-      setPath({
-        points: [
-          startPoint,
-          { lat: ride.destinationLatitude, lng: ride.destinationLongitude }
-        ],
-        color: '#10B981' // Green
-      });
-    } else {
-      // For requested or other statuses, show pickup to destination
-      setPath({
-        points: [
-          { lat: ride.pickupLatitude, lng: ride.pickupLongitude },
-          { lat: ride.destinationLatitude, lng: ride.destinationLongitude }
-        ],
-        color: '#4F46E5' // Indigo
-      });
+  }, [pickup, dropoff, driver, status, estimatedArrival]);
+  
+  // Get status display info
+  const getStatusInfo = () => {
+    switch (status) {
+      case 'requested':
+        return {
+          title: 'Finding a driver...',
+          description: 'We\'re connecting you with a nearby driver',
+          color: 'bg-amber-500'
+        };
+      case 'accepted':
+        return {
+          title: 'Driver on the way',
+          description: estimatedArrival ? `Arriving in ${estimatedArrival}` : 'Your driver is heading to pickup',
+          color: 'bg-blue-500'
+        };
+      case 'in_progress':
+        return {
+          title: 'On the move',
+          description: 'You\'re on your way to the destination',
+          color: 'bg-green-500'
+        };
+      case 'completed':
+        return {
+          title: 'Ride Completed',
+          description: 'You\'ve arrived at your destination',
+          color: 'bg-green-600'
+        };
+      case 'cancelled':
+        return {
+          title: 'Ride Cancelled',
+          description: 'This ride has been cancelled',
+          color: 'bg-red-500'
+        };
+      default:
+        return {
+          title: 'Booking a ride',
+          description: 'Setting up your ride details',
+          color: 'bg-gray-500'
+        };
     }
-  }, [ride, driverLocation, currentLocation, showRiderControls]);
+  };
+  
+  const statusInfo = getStatusInfo();
   
   return (
-    <Card className={`overflow-hidden ${className}`}>
-      <CardContent className="p-0 relative">
-        <div className="h-64 md:h-80">
-          <AzureMapView 
-            markers={markers}
-            path={path}
-            className="h-full w-full"
-            center={driverLocation ? { 
-              lat: driverLocation.latitude, 
-              lng: driverLocation.longitude 
-            } : undefined}
-          />
-        </div>
+    <Card className="mb-6">
+      <CardHeader className={`${statusInfo.color} text-white`}>
+        <CardTitle className="flex items-center text-xl">
+          {status === 'in_progress' ? <Car className="mr-2" /> : <MapPin className="mr-2" />}
+          {statusInfo.title}
+        </CardTitle>
+        <CardDescription className="text-white text-opacity-90">
+          {statusInfo.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        {/* Map display */}
+        <MapDisplay 
+          center={mapCenter}
+          zoom={zoom}
+          height="300px"
+          markers={markers}
+          routePoints={{
+            start: [pickup.latitude, pickup.longitude],
+            end: [dropoff.latitude, dropoff.longitude],
+            startTitle: pickup.address,
+            endTitle: dropoff.address
+          }}
+          userLocation={userLocation}
+        />
         
-        {/* Ride Info Overlay */}
-        <div className="absolute bottom-4 left-0 right-0 mx-4">
-          <Card className="bg-white/95 backdrop-blur-sm shadow-lg">
-            <CardContent className="p-3 flex flex-wrap justify-between items-center text-sm">
-              <div className="flex items-center space-x-2">
-                <span className="font-semibold">
-                  {getRideStatusText(ride.status)}
-                </span>
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"/>
-                <span>
-                  {formatDistance(ride.estimatedDistance)}
-                </span>
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"/>
-                <span>
-                  {formatDuration(ride.estimatedDuration)}
-                </span>
-              </div>
-              <div className="font-semibold">
-                ${ride.actualFare || ride.estimatedFare.toFixed(2)}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Navigation buttons */}
+        <div className="p-4 grid grid-cols-2 gap-3">
+          <Button 
+            onClick={() => navigateWithWaze(pickup.latitude, pickup.longitude, pickup.address)}
+            variant="outline"
+            className="flex items-center justify-center"
+          >
+            <MapPin className="mr-2 h-4 w-4" />
+            Navigate to Pickup
+          </Button>
+          
+          <Button 
+            onClick={() => navigateWithWaze(dropoff.latitude, dropoff.longitude, dropoff.address)}
+            variant="outline"
+            className="flex items-center justify-center"
+          >
+            <Navigation className="mr-2 h-4 w-4" />
+            Navigate to Dropoff
+          </Button>
         </div>
-        
-        {/* Location Tracker for drivers */}
-        {showDriverControls && (
-          <div className="absolute top-4 right-4">
-            <Card className="w-auto bg-white/95 backdrop-blur-sm shadow-lg">
-              <CardContent className="p-3">
-                <LocationTracker 
-                  shareLocation={true} 
-                  showControls={true}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
-}
-
-// Helper function to get human-readable ride status
-function getRideStatusText(status: string): string {
-  switch (status) {
-    case 'requested': return 'Searching for driver';
-    case 'accepted': return 'Driver on the way';
-    case 'in_progress': return 'In progress';
-    case 'completed': return 'Completed';
-    case 'cancelled': return 'Cancelled';
-    default: return 'Unknown status';
-  }
 }
