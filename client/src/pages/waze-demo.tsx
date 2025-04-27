@@ -10,6 +10,7 @@ import { RideMap } from '@/components/maps/RideMap';
 import { MusicPreferences } from '@/components/audio/MusicPreferences';
 import { RideAudioSelector } from '@/components/audio/RideAudioSelector';
 import { ExternalLink, Navigation, Map, Music } from 'lucide-react';
+import WazeDemoNavMenu from '@/components/demo/WazeDemoNavMenu';
 
 export default function WazeDemo() {
   const [coords, setCoords] = useState<{
@@ -63,6 +64,7 @@ export default function WazeDemo() {
   
   return (
     <div className="container py-10">
+      <WazeDemoNavMenu />
       <h1 className="text-3xl font-bold mb-6">Waze Integration Demo</h1>
       <p className="text-gray-600 mb-8">
         This demo showcases BookMyWhip's integration with Waze for navigation and audio services,

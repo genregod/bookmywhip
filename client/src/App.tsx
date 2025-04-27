@@ -128,6 +128,7 @@ function DemoRoutes() {
     <Switch>
       <Route path="/demo" component={Demo} />
       <Route path="/socket-demo" component={SocketDemo} />
+      <Route path="/waze-demo" component={WazeDemoPage} />
       <Route path="*">
         <Redirect to="/demo" />
       </Route>
@@ -137,7 +138,7 @@ function DemoRoutes() {
 
 function App() {
   // Use a demo version for simplicity and to avoid authentication issues
-  const isDemoMode = window.location.pathname.includes('/demo') || window.location.pathname.includes('/socket-demo');
+  const isDemoMode = window.location.pathname.includes('/demo') || window.location.pathname.includes('/socket-demo') || window.location.pathname.includes('/waze-demo');
   
   if (isDemoMode) {
     return (
