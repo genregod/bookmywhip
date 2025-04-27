@@ -82,6 +82,92 @@ export function calculateDistance(
 }
 
 /**
+ * Find nearby points based on a given location and radius
+ * Useful for finding nearby drivers or popular pickup locations
+ * 
+ * @param centerLat Center latitude
+ * @param centerLon Center longitude
+ * @param points Array of points with lat, lon properties
+ * @param radiusKm Radius in kilometers (default: 5km)
+ * @returns Array of points within the radius, sorted by distance
+ */
+export function findNearbyPoints<T extends { latitude: number; longitude: number }>(
+  centerLat: number,
+  centerLon: number,
+  points: T[],
+  radiusKm: number = 5
+): (T & { distance: number })[] {
+  // Calculate distance for each point
+  const pointsWithDistance = points.map(point => {
+    const distance = calculateDistance(
+      centerLat,
+      centerLon,
+      point.latitude,
+      point.longitude
+    );
+    return { ...point, distance };
+  });
+  
+  // Filter points within the radius
+  const nearbyPoints = pointsWithDistance.filter(
+    point => point.distance <= radiusKm
+  );
+  
+  // Sort by distance (closest first)
+  return nearbyPoints.sort((a, b) => a.distance - b.distance);
+}
+
+/**
+ * Creates a bounding box around a central point for efficient geo-queries
+ * @param centerLat Center latitude
+ * @param centerLon Center longitude
+ * @param radiusKm Radius in kilometers 
+ * @returns Object with min/max latitude and longitude values
+ */
+export function getBoundingBox(
+  centerLat: number,
+  centerLon: number,
+  radiusKm: number
+): {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+} {
+  // Earth's radius in km
+  const R = 6371;
+  
+  // Angular distance in radians on a great circle
+  const angularDistance = radiusKm / R;
+  
+  // Latitude bounds
+  const latT = Math.asin(
+    Math.sin(toRadians(centerLat)) * Math.cos(angularDistance) +
+    Math.cos(toRadians(centerLat)) * Math.sin(angularDistance)
+  );
+  
+  const latB = Math.asin(
+    Math.sin(toRadians(centerLat)) * Math.cos(angularDistance) -
+    Math.cos(toRadians(centerLat)) * Math.sin(angularDistance)
+  );
+  
+  // Longitude bounds (much more complex for accuracy)
+  // This is a simplification
+  const lonR = Math.asin(
+    Math.sin(angularDistance) / Math.cos(toRadians(centerLat))
+  );
+  
+  const lonL = -lonR;
+  
+  return {
+    minLat: (latB * 180) / Math.PI,
+    maxLat: (latT * 180) / Math.PI,
+    minLon: centerLon + (lonL * 180) / Math.PI,
+    maxLon: centerLon + (lonR * 180) / Math.PI
+  };
+}
+
+/**
  * Convert degrees to radians
  * @param degrees Angle in degrees
  * @returns Angle in radians

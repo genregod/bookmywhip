@@ -113,10 +113,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNearbyDrivers(latitude: number, longitude: number, radius: number, vehicleType: string): Promise<User[]> {
-    // This is a simplified version. In a real-world scenario, you might use PostGIS for more accurate geospatial queries
-    // Here we're assuming we have active drivers with vehicles of the requested type
-    
-    // First get all drivers with active vehicles matching the vehicle type
+    // Get all active drivers with vehicles of the requested type
     const result = await db
       .select()
       .from(users)
@@ -125,10 +122,57 @@ export class DatabaseStorage implements IStorage {
         eq(vehicles.type, vehicleType),
         eq(vehicles.isActive, true)
       ))
-      .where(eq(users.role, 'driver'));
+      .where(and(
+        eq(users.role, 'driver'),
+        eq(users.isAvailable, true)
+      ));
     
-    // Filter by "proximity" - in a real app, you'd use proper geospatial calculations
-    return result.map(({users: driver}) => driver);
+    // Extract driver records
+    const driversWithVehicles = result.map(({users: driver, vehicles: vehicle}) => ({
+      ...driver,
+      vehicle
+    }));
+    
+    // We need to filter by proximity
+    // This is still a simplified version, but improved from before
+    // In a production environment with PostgreSQL, you would use PostGIS for efficient geospatial queries
+
+    // Get a rectangular bounding box to first filter the data
+    const {minLat, maxLat, minLon, maxLon} = getBoundingBox(latitude, longitude, radius);
+    
+    // Filter drivers whose last known location is within the bounding box
+    const driversInBoundingBox = driversWithVehicles.filter(driver => {
+      if (!driver.lastKnownLatitude || !driver.lastKnownLongitude) {
+        return false; // Skip drivers without location data
+      }
+      
+      return (
+        driver.lastKnownLatitude >= minLat && 
+        driver.lastKnownLatitude <= maxLat &&
+        driver.lastKnownLongitude >= minLon &&
+        driver.lastKnownLongitude <= maxLon
+      );
+    });
+    
+    // Now do a precise calculation for each driver in the bounding box
+    const nearbyDrivers = driversInBoundingBox.map(driver => {
+      const distance = calculateDistance(
+        latitude, 
+        longitude, 
+        driver.lastKnownLatitude!, 
+        driver.lastKnownLongitude!
+      );
+      
+      return {
+        ...driver,
+        distance
+      };
+    })
+    .filter(driver => driver.distance <= radius)
+    .sort((a, b) => a.distance - b.distance);
+    
+    // Return just the user records
+    return nearbyDrivers.map(({distance, vehicle, ...driver}) => driver);
   }
 
   // Vehicle operations
