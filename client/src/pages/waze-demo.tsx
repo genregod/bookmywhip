@@ -39,6 +39,12 @@ export default function WazeDemo() {
     name: 'Los Angeles'
   });
   
+  // State for embedded navigation
+  const [showDestination, setShowDestination] = useState(false);
+  const [showRoute, setShowRoute] = useState(false);
+  const [showAsModal, setShowAsModal] = useState(false);
+  const [showRouteAsModal, setShowRouteAsModal] = useState(false);
+  
   // Mock demo data for the ride map
   const mockRide = {
     pickup: {
@@ -88,6 +94,152 @@ export default function WazeDemo() {
             <Music className="mr-2 h-4 w-4" /> Waze Audio Kit
           </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="embedded" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Embedded Navigation</CardTitle>
+              <CardDescription>
+                BookMyWhip embeds navigation directly within the app, removing the need to switch between apps
+                during a ride. This keeps riders and drivers connected on the same platform.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Destination Navigation</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Navigate to a single destination without leaving the BookMyWhip app. Control the navigation
+                    experience with minimize, fullscreen, and close options.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="embedded-lat">Latitude</Label>
+                      <Input 
+                        id="embedded-lat" 
+                        type="number" 
+                        placeholder="Latitude" 
+                        value={coords.lat}
+                        onChange={(e) => setCoords({ ...coords, lat: parseFloat(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="embedded-lng">Longitude</Label>
+                      <Input 
+                        id="embedded-lng" 
+                        type="number" 
+                        placeholder="Longitude" 
+                        value={coords.lng}
+                        onChange={(e) => setCoords({ ...coords, lng: parseFloat(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="embedded-place-name">Place Name</Label>
+                    <Input 
+                      id="embedded-place-name" 
+                      placeholder="e.g. My Destination" 
+                      value={coords.name}
+                      onChange={(e) => setCoords({ ...coords, name: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch id="show-as-modal" checked={showAsModal} onCheckedChange={setShowAsModal} />
+                    <Label htmlFor="show-as-modal">Show as modal</Label>
+                  </div>
+                  
+                  <Button 
+                    onClick={() => setShowDestination(true)}
+                    className="w-full"
+                  >
+                    Show Embedded Navigation
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Route Navigation</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Navigate a specific route with start and end points defined. This is used when the driver
+                    needs to navigate from pickup to drop-off location.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Switch id="show-route-as-modal" checked={showRouteAsModal} onCheckedChange={setShowRouteAsModal} />
+                      <Label htmlFor="show-route-as-modal">Show as modal</Label>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setShowRoute(true)}
+                      className="w-full"
+                    >
+                      Show Route Navigation
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              {showDestination && !showAsModal && (
+                <div className="mt-8">
+                  <WazeEmbeddedNavigation
+                    destination={{
+                      latitude: coords.lat,
+                      longitude: coords.lng,
+                      name: coords.name
+                    }}
+                    height="400px"
+                    onClose={() => setShowDestination(false)}
+                  />
+                </div>
+              )}
+              
+              {showDestination && showAsModal && (
+                <WazeEmbeddedNavigation
+                  destination={{
+                    latitude: coords.lat,
+                    longitude: coords.lng,
+                    name: coords.name
+                  }}
+                  showAsModal={true}
+                  onClose={() => setShowDestination(false)}
+                />
+              )}
+              
+              {showRoute && !showRouteAsModal && (
+                <div className="mt-8">
+                  <WazeEmbeddedNavigation
+                    route={{
+                      startLatitude: routeCoords.fromLat,
+                      startLongitude: routeCoords.fromLng,
+                      endLatitude: routeCoords.toLat,
+                      endLongitude: routeCoords.toLng,
+                      name: routeCoords.name
+                    }}
+                    height="400px"
+                    onClose={() => setShowRoute(false)}
+                  />
+                </div>
+              )}
+              
+              {showRoute && showRouteAsModal && (
+                <WazeEmbeddedNavigation
+                  route={{
+                    startLatitude: routeCoords.fromLat,
+                    startLongitude: routeCoords.fromLng,
+                    endLatitude: routeCoords.toLat,
+                    endLongitude: routeCoords.toLng,
+                    name: routeCoords.name
+                  }}
+                  showAsModal={true}
+                  onClose={() => setShowRoute(false)}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
         
         <TabsContent value="deep-links" className="space-y-6">
           <Card>

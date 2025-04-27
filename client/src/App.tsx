@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import AuthPage from "@/pages/auth-page";
 import Verification from "@/pages/verification";
 import Profile from "@/pages/profile";
 import Rides from "@/pages/rides";
@@ -46,11 +47,11 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
   
   if (timeoutOccurred && isLoading) {
     // Fallback if loading takes too long
-    return <Redirect to="/login" />;
+    return <Redirect to="/auth" />;
   }
 
   if (!user) {
-    return <Redirect to="/login" />;
+    return <Redirect to="/auth" />;
   }
 
   if (adminOnly && user.role !== 'admin') {
@@ -102,6 +103,7 @@ function Router() {
       <Route path="/" component={(props: any) => <ProtectedRoute component={Home} {...props} />} />
       <Route path="/login" component={(props: any) => <PublicRoute component={Login} {...props} />} />
       <Route path="/register" component={(props: any) => <PublicRoute component={Register} {...props} />} />
+      <Route path="/auth" component={(props: any) => <PublicRoute component={AuthPage} {...props} />} />
       <Route path="/verification" component={(props: any) => <ProtectedRoute component={Verification} {...props} />} />
       <Route path="/profile" component={(props: any) => <ProtectedRoute component={Profile} {...props} />} />
       <Route path="/rides" component={(props: any) => <ProtectedRoute component={Rides} {...props} />} />
@@ -111,6 +113,7 @@ function Router() {
       <Route path="/admin" component={(props: any) => <ProtectedRoute component={Admin} adminOnly={true} {...props} />} />
       <Route path="/demo" component={Demo} />
       <Route path="/socket-demo" component={SocketDemo} />
+      <Route path="/waze-demo" component={WazeDemoPage} />
 
       {/* Fallback to 404 */}
       <Route component={NotFound} />
