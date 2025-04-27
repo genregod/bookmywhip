@@ -77,6 +77,23 @@ function MapViewUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
+// Map click handler component
+function ClickHandler({ onMapClick }: { onMapClick: (e: any) => void }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!map) return;
+    
+    map.on('click', onMapClick);
+    
+    return () => {
+      map.off('click', onMapClick);
+    };
+  }, [map, onMapClick]);
+  
+  return null;
+}
+
 export default function NavigationDemo() {
   const { toast } = useToast();
   const [userLocation, setUserLocation] = useState<[number, number]>([40.7580, -73.9855]); // Default to NYC
@@ -235,13 +252,14 @@ export default function NavigationDemo() {
                     center={userLocation}
                     zoom={14}
                     style={{ height: '100%', width: '100%' }}
-                    onClick={handleMapClick}
                   >
                     <MapViewUpdater center={userLocation} />
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
+                    {/* We need to add click event handler via a custom component */}
+                    <ClickHandler onMapClick={handleMapClick} />
                     
                     {/* User marker */}
                     <Marker position={userLocation} icon={defaultIcon}>
