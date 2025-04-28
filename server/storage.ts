@@ -837,6 +837,73 @@ export class DatabaseStorage implements IStorage {
       
     return cancelledSubscription;
   }
+
+  // Audio preferences operations
+  async getAudioPreferences(userId: number): Promise<AudioPreference | undefined> {
+    const [preferences] = await db.select().from(audioPreferences).where(eq(audioPreferences.userId, userId));
+    return preferences;
+  }
+
+  async createAudioPreferences(data: InsertAudioPreference): Promise<AudioPreference> {
+    const [preferences] = await db.insert(audioPreferences).values(data).returning();
+    return preferences;
+  }
+
+  async updateAudioPreferences(userId: number, data: Partial<InsertAudioPreference>): Promise<AudioPreference | undefined> {
+    // First check if preferences exist
+    const existingPreferences = await this.getAudioPreferences(userId);
+    
+    if (existingPreferences) {
+      // Update existing preferences
+      const [updatedPreferences] = await db
+        .update(audioPreferences)
+        .set({ 
+          ...data,
+          updatedAt: new Date() 
+        })
+        .where(eq(audioPreferences.userId, userId))
+        .returning();
+      
+      return updatedPreferences;
+    } else {
+      // Create new preferences if they don't exist
+      const [newPreferences] = await db
+        .insert(audioPreferences)
+        .values({
+          userId,
+          ...data as InsertAudioPreference
+        })
+        .returning();
+      
+      return newPreferences;
+    }
+  }
+
+  // Soundtrack playlist operations
+  async getSoundtrackPlaylist(id: number): Promise<SoundtrackPlaylist | undefined> {
+    const [playlist] = await db.select().from(soundtrackPlaylists).where(eq(soundtrackPlaylists.id, id));
+    return playlist;
+  }
+
+  async getSoundtrackPlaylistByRideId(rideId: number): Promise<SoundtrackPlaylist | undefined> {
+    const [playlist] = await db.select().from(soundtrackPlaylists).where(eq(soundtrackPlaylists.rideId, rideId));
+    return playlist;
+  }
+
+  async createSoundtrackPlaylist(data: InsertSoundtrackPlaylist): Promise<SoundtrackPlaylist> {
+    const [playlist] = await db.insert(soundtrackPlaylists).values(data).returning();
+    return playlist;
+  }
+
+  async updateSoundtrackPlaylist(id: number, data: Partial<InsertSoundtrackPlaylist>): Promise<SoundtrackPlaylist | undefined> {
+    const [updatedPlaylist] = await db
+      .update(soundtrackPlaylists)
+      .set(data)
+      .where(eq(soundtrackPlaylists.id, id))
+      .returning();
+    
+    return updatedPlaylist;
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -2,7 +2,17 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import path from "path";
-import { insertUserSchema, insertRideSchema, insertVehicleSchema, insertLocationSchema } from "@shared/schema";
+import { 
+  insertUserSchema, 
+  insertRideSchema, 
+  insertVehicleSchema, 
+  insertLocationSchema,
+  insertAudioPreferenceSchema,
+  insertSoundtrackPlaylistSchema,
+  musicGenreEnum,
+  contentRatingEnum,
+  moodEnum
+} from "@shared/schema";
 import { z } from "zod";
 import Stripe from "stripe";
 import session from "express-session";
@@ -36,14 +46,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.id, 10);
       
-      // In a real implementation, fetch from database
-      // For now, return simulated preferences
-      res.json({
-        userId,
-        contentRatingPreference: 'family_friendly',
-        preferredGenres: ['pop', 'rock', 'jazz'],
-        favoriteArtists: []
-      });
+      // Fetch audio preferences from database
+      const preferences = await storage.getAudioPreferences(userId);
+      
+      if (!preferences) {
+        return res.status(404).json({ message: 'Audio preferences not found' });
+      }
+      
+      res.json(preferences);
     } catch (error) {
       console.error('Error fetching audio preferences:', error);
       res.status(500).json({ message: 'Failed to fetch audio preferences' });
@@ -53,80 +63,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/users/:id/audio-preferences', async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id, 10);
-      const preferences = req.body;
       
-      // In a real implementation, save to database
-      // For now, just return success
-      res.status(200).json({ success: true });
+      // Validate the request body
+      const preferencesData = insertAudioPreferenceSchema.parse({
+        ...req.body,
+        userId
+      });
+      
+      // Create or update preferences
+      const preferences = await storage.updateAudioPreferences(userId, preferencesData);
+      
+      res.status(200).json(preferences);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
+      }
       console.error('Error saving audio preferences:', error);
       res.status(500).json({ message: 'Failed to save audio preferences' });
     }
   });
   
-  app.get('/api/audio-content', async (req: Request, res: Response) => {
+  // Soundtrack playlist routes
+  app.get('/api/soundtrack-playlists/:id', async (req: Request, res: Response) => {
     try {
-      const ratingMax = req.query.ratingMax || 'family_friendly';
+      const playlistId = parseInt(req.params.id, 10);
       
-      // In a real implementation, fetch from database or music service API
-      // For now, return simulated content
-      const content = [
-        {
-          id: 'playlist1',
-          title: 'Chill Vibes',
-          artist: 'Various Artists',
-          duration: 3600,
-          coverUrl: 'https://placehold.co/400x400/4CAF50/FFFFFF/png?text=Chill+Vibes',
-          contentType: 'music',
-          contentRating: 'family_friendly',
-          sourceUrl: '#'
-        },
-        {
-          id: 'playlist2',
-          title: 'Road Trip Classics',
-          artist: 'Various Artists',
-          duration: 4500,
-          coverUrl: 'https://placehold.co/400x400/2196F3/FFFFFF/png?text=Road+Trip',
-          contentType: 'music',
-          contentRating: 'family_friendly',
-          sourceUrl: '#'
-        },
-        {
-          id: 'playlist3',
-          title: 'Hip Hop Essentials',
-          artist: 'Various Artists',
-          duration: 3200,
-          coverUrl: 'https://placehold.co/400x400/FFC107/000000/png?text=Hip+Hop',
-          contentType: 'music',
-          contentRating: 'mild',
-          sourceUrl: '#'
-        }
-      ];
+      // Fetch soundtrack playlist from database
+      const playlist = await storage.getSoundtrackPlaylist(playlistId);
       
-      // Filter content based on rating
-      const filteredContent = content.filter(item => {
-        if (ratingMax === 'explicit') return true;
-        if (ratingMax === 'mild') return item.contentRating !== 'explicit';
-        return item.contentRating === 'family_friendly';
-      });
+      if (!playlist) {
+        return res.status(404).json({ message: 'Soundtrack playlist not found' });
+      }
       
-      res.json(filteredContent);
+      res.json(playlist);
     } catch (error) {
-      console.error('Error fetching audio content:', error);
-      res.status(500).json({ message: 'Failed to fetch audio content' });
+      console.error('Error fetching soundtrack playlist:', error);
+      res.status(500).json({ message: 'Failed to fetch soundtrack playlist' });
     }
   });
   
-  app.post('/api/rides/audio-settings', async (req: Request, res: Response) => {
+  app.get('/api/rides/:id/soundtrack', async (req: Request, res: Response) => {
     try {
-      const { rideId, playlistId } = req.body;
+      const rideId = parseInt(req.params.id, 10);
       
-      // In a real implementation, save to database
-      // For now, just return success
-      res.status(200).json({ success: true });
+      // Fetch soundtrack playlist for the ride
+      const playlist = await storage.getSoundtrackPlaylistByRideId(rideId);
+      
+      if (!playlist) {
+        return res.status(404).json({ message: 'No soundtrack playlist found for this ride' });
+      }
+      
+      res.json(playlist);
     } catch (error) {
-      console.error('Error saving ride audio settings:', error);
-      res.status(500).json({ message: 'Failed to save ride audio settings' });
+      console.error('Error fetching ride soundtrack:', error);
+      res.status(500).json({ message: 'Failed to fetch ride soundtrack' });
+    }
+  });
+  
+  app.post('/api/rides/:id/soundtrack', async (req: Request, res: Response) => {
+    try {
+      const rideId = parseInt(req.params.id, 10);
+      
+      // Get the ride to make sure it exists
+      const ride = await storage.getRide(rideId);
+      if (!ride) {
+        return res.status(404).json({ message: 'Ride not found' });
+      }
+      
+      // Check if this ride already has a soundtrack
+      const existingPlaylist = await storage.getSoundtrackPlaylistByRideId(rideId);
+      
+      if (existingPlaylist) {
+        // Update existing playlist
+        const updatedPlaylist = await storage.updateSoundtrackPlaylist(existingPlaylist.id, req.body);
+        return res.json(updatedPlaylist);
+      } else {
+        // Create new playlist
+        const playlistData = insertSoundtrackPlaylistSchema.parse({
+          ...req.body,
+          rideId
+        });
+        
+        const newPlaylist = await storage.createSoundtrackPlaylist(playlistData);
+        return res.status(201).json(newPlaylist);
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
+      }
+      console.error('Error saving ride soundtrack:', error);
+      res.status(500).json({ message: 'Failed to save ride soundtrack' });
+    }
+  });
+  
+  // Generate a personalized soundtrack
+  app.post('/api/rides/:id/generate-soundtrack', async (req: Request, res: Response) => {
+    try {
+      const rideId = parseInt(req.params.id, 10);
+      
+      // Get the ride to make sure it exists
+      const ride = await storage.getRide(rideId);
+      if (!ride) {
+        return res.status(404).json({ message: 'Ride not found' });
+      }
+      
+      // Get rider's audio preferences
+      const riderPreferences = await storage.getAudioPreferences(ride.riderId);
+      
+      // Get driver's audio preferences if available
+      let driverPreferences = null;
+      if (ride.driverId) {
+        driverPreferences = await storage.getAudioPreferences(ride.driverId);
+      }
+      
+      // Generate a playlist based on preferences and ride details
+      // For now, we're creating a simple playlist structure
+      // In a real implementation, this would call a music service API
+      
+      const playlistName = `Ride ${ride.id} Soundtrack`;
+      
+      // Use rider preferences with fallbacks
+      const genre = riderPreferences?.favoriteGenres?.[0] || 'pop';
+      const mood = riderPreferences?.preferredMoods?.[0] || 'relaxed';
+      const contentRating = riderPreferences?.contentRating || 'clean';
+      
+      // Create the playlist with placeholder tracks
+      // In a real implementation, we would get actual tracks from a music API
+      const tracks = [
+        {
+          id: "track_1",
+          title: "Relaxing Journey",
+          artist: "BookMyWhip Radio",
+          duration: 180, // 3 minutes
+          genre: genre,
+          mood: mood
+        },
+        {
+          id: "track_2",
+          title: "Smooth Ride",
+          artist: "BookMyWhip Radio",
+          duration: 210, // 3.5 minutes
+          genre: genre,
+          mood: mood
+        },
+        {
+          id: "track_3",
+          title: "City Cruising",
+          artist: "BookMyWhip Radio",
+          duration: 195, // 3.25 minutes
+          genre: genre,
+          mood: mood
+        }
+      ];
+      
+      // Calculate total duration
+      const totalDuration = tracks.reduce((sum, track) => sum + track.duration, 0);
+      
+      // Create or update soundtrack playlist
+      const existingPlaylist = await storage.getSoundtrackPlaylistByRideId(rideId);
+      
+      if (existingPlaylist) {
+        // Update existing playlist
+        const updatedPlaylist = await storage.updateSoundtrackPlaylist(existingPlaylist.id, {
+          name: playlistName,
+          genre,
+          mood,
+          tracks,
+          trackCount: tracks.length,
+          duration: totalDuration
+        });
+        
+        return res.json(updatedPlaylist);
+      } else {
+        // Create new playlist
+        const playlistData = {
+          rideId,
+          name: playlistName,
+          description: `Personalized soundtrack for your ride`,
+          genre,
+          mood,
+          tracks,
+          trackCount: tracks.length,
+          duration: totalDuration,
+          coverImage: `https://placehold.co/400x400/4CAF50/FFFFFF/png?text=${encodeURIComponent(playlistName)}`
+        };
+        
+        const newPlaylist = await storage.createSoundtrackPlaylist(playlistData);
+        return res.status(201).json(newPlaylist);
+      }
+    } catch (error) {
+      console.error('Error generating soundtrack:', error);
+      res.status(500).json({ message: 'Failed to generate soundtrack' });
     }
   });
   // Serve the demo page directly
