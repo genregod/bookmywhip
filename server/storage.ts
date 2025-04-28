@@ -19,7 +19,13 @@ import {
   InsertPaymentMethod,
   subscriptions,
   Subscription,
-  InsertSubscription
+  InsertSubscription,
+  audioPreferences,
+  AudioPreference,
+  InsertAudioPreference,
+  soundtrackPlaylists,
+  SoundtrackPlaylist,
+  InsertSoundtrackPlaylist
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, or } from "drizzle-orm";
@@ -145,6 +151,17 @@ export interface IStorage {
   // Settings operations
   getSetting(key: string): Promise<Setting | undefined>;
   updateSetting(key: string, value: any): Promise<Setting | undefined>;
+  
+  // Audio preferences operations
+  getAudioPreferences(userId: number): Promise<AudioPreference | undefined>;
+  createAudioPreferences(data: InsertAudioPreference): Promise<AudioPreference>;
+  updateAudioPreferences(userId: number, data: Partial<InsertAudioPreference>): Promise<AudioPreference | undefined>;
+  
+  // Soundtrack playlist operations
+  getSoundtrackPlaylist(id: number): Promise<SoundtrackPlaylist | undefined>;
+  getSoundtrackPlaylistByRideId(rideId: number): Promise<SoundtrackPlaylist | undefined>;
+  createSoundtrackPlaylist(data: InsertSoundtrackPlaylist): Promise<SoundtrackPlaylist>;
+  updateSoundtrackPlaylist(id: number, data: Partial<InsertSoundtrackPlaylist>): Promise<SoundtrackPlaylist | undefined>;
 }
 
 // Database Storage implementation

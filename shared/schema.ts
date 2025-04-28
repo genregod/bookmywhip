@@ -7,6 +7,9 @@ import { relations } from "drizzle-orm";
 export const userRoleEnum = pgEnum('user_role', ['rider', 'driver', 'admin']);
 export const rideStatusEnum = pgEnum('ride_status', ['requested', 'accepted', 'in_progress', 'completed', 'cancelled']);
 export const vehicleTypeEnum = pgEnum('vehicle_type', ['economy', 'premium']);
+export const musicGenreEnum = pgEnum('music_genre', ['pop', 'rock', 'jazz', 'classical', 'electronic', 'hiphop', 'country', 'rnb', 'latin', 'ambient', 'indie']);
+export const contentRatingEnum = pgEnum('content_rating', ['clean', 'explicit']);
+export const moodEnum = pgEnum('mood', ['energetic', 'relaxed', 'happy', 'melancholic', 'focused', 'romantic', 'party']);
 
 // User model
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due', 'unpaid', 'trialing', 'incomplete', 'incomplete_expired']);
@@ -253,13 +256,58 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
 });
 export const selectSubscriptionSchema = createSelectSchema(subscriptions);
 
+// Audio preferences model - stores user's music preferences
+export const audioPreferences = pgTable('audio_preferences', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id).unique(),
+  favoriteGenres: musicGenreEnum('favorite_genres').array().notNull().default([]),
+  contentRating: contentRatingEnum('content_rating').notNull().default('clean'),
+  volume: integer('volume').notNull().default(70), // Volume percentage (0-100)
+  preferredMoods: moodEnum('preferred_moods').array().notNull().default([]),
+  allowPersonalization: boolean('allow_personalization').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Audio preferences relations
+export const audioPreferencesRelations = relations(audioPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [audioPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
+// Soundtrack playlist model - stores ride-specific playlists
+export const soundtrackPlaylists = pgTable('soundtrack_playlists', {
+  id: serial('id').primaryKey(),
+  rideId: integer('ride_id').references(() => rides.id).unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  trackCount: integer('track_count').notNull().default(0),
+  duration: integer('duration').notNull().default(0), // Total duration in seconds
+  coverImage: text('cover_image'),
+  genre: musicGenreEnum('genre'),
+  mood: moodEnum('mood'),
+  tracks: json('tracks').notNull().default([]), // Array of track objects
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Soundtrack playlist relations
+export const soundtrackPlaylistsRelations = relations(soundtrackPlaylists, ({ one }) => ({
+  ride: one(rides, {
+    fields: [soundtrackPlaylists.rideId],
+    references: [rides.id],
+  }),
+}));
+
 // User relations defined after all table declarations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   vehicles: many(vehicles),
   ridesAsRider: many(rides, { relationName: "rider" }),
   ridesAsDriver: many(rides, { relationName: "driver" }),
   paymentMethods: many(paymentMethods),
   subscriptions: many(subscriptions),
+  audioPreferences: one(audioPreferences),
 }));
 
 // Type definitions
@@ -283,3 +331,23 @@ export type InsertPaymentMethod = typeof paymentMethods.$inferInsert;
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+export type AudioPreference = typeof audioPreferences.$inferSelect;
+export type InsertAudioPreference = typeof audioPreferences.$inferInsert;
+
+export type SoundtrackPlaylist = typeof soundtrackPlaylists.$inferSelect;
+export type InsertSoundtrackPlaylist = typeof soundtrackPlaylists.$inferInsert;
+
+// Create schemas for audio features
+export const insertAudioPreferenceSchema = createInsertSchema(audioPreferences).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export const selectAudioPreferenceSchema = createSelectSchema(audioPreferences);
+
+export const insertSoundtrackPlaylistSchema = createInsertSchema(soundtrackPlaylists).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export const selectSoundtrackPlaylistSchema = createSelectSchema(soundtrackPlaylists);
