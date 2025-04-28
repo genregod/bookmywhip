@@ -23,6 +23,7 @@ import NavigationDemo from "@/pages/navigation-demo";
 import RoutePreviewDemo from "@/pages/route-preview-demo";
 import RouteAnimationTest from "@/pages/route-animation-test";
 import AzureMapsDemo from "@/pages/azure-maps-demo";
+import RealTimeTrackingDemo from "@/pages/real-time-tracking-demo";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";
@@ -140,6 +141,7 @@ function DemoRoutes() {
       <Route path="/route-preview-demo" component={RoutePreviewDemo} />
       <Route path="/route-animation-test" component={RouteAnimationTest} />
       <Route path="/azure-maps-demo" component={AzureMapsDemo} />
+      <Route path="/real-time-tracking-demo" component={RealTimeTrackingDemo} />
       <Route path="*">
         <Redirect to="/demo" />
       </Route>
@@ -155,7 +157,8 @@ function App() {
                     window.location.pathname.includes('/navigation-demo') ||
                     window.location.pathname.includes('/route-preview-demo') ||
                     window.location.pathname.includes('/route-animation-test') ||
-                    window.location.pathname.includes('/azure-maps-demo');
+                    window.location.pathname.includes('/azure-maps-demo') ||
+                    window.location.pathname.includes('/real-time-tracking-demo');
   
   if (isDemoMode) {
     return (
