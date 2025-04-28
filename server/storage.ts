@@ -560,6 +560,266 @@ export class DatabaseStorage implements IStorage {
       return newSetting;
     }
   }
+
+  // Payment method operations
+  async getPaymentMethod(id: number): Promise<PaymentMethod | undefined> {
+    const [paymentMethod] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
+    return paymentMethod;
+  }
+
+  async getPaymentMethodByStripeId(stripePaymentMethodId: string): Promise<PaymentMethod | undefined> {
+    const [paymentMethod] = await db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.stripePaymentMethodId, stripePaymentMethodId));
+    return paymentMethod;
+  }
+
+  async getPaymentMethodsByUserId(userId: number): Promise<PaymentMethod[]> {
+    return db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.userId, userId))
+      .orderBy(desc(paymentMethods.isDefault), asc(paymentMethods.id));
+  }
+
+  async getDefaultPaymentMethod(userId: number): Promise<PaymentMethod | undefined> {
+    const [paymentMethod] = await db
+      .select()
+      .from(paymentMethods)
+      .where(
+        and(
+          eq(paymentMethods.userId, userId),
+          eq(paymentMethods.isDefault, true)
+        )
+      );
+    return paymentMethod;
+  }
+
+  async createPaymentMethod(paymentMethodData: InsertPaymentMethod): Promise<PaymentMethod> {
+    // If this is set as default, we need to reset any existing default payment methods
+    if (paymentMethodData.isDefault) {
+      await db
+        .update(paymentMethods)
+        .set({ isDefault: false })
+        .where(
+          and(
+            eq(paymentMethods.userId, paymentMethodData.userId),
+            eq(paymentMethods.isDefault, true)
+          )
+        );
+    }
+    
+    const [paymentMethod] = await db
+      .insert(paymentMethods)
+      .values(paymentMethodData)
+      .returning();
+      
+    return paymentMethod;
+  }
+
+  async updatePaymentMethod(id: number, paymentMethodData: Partial<InsertPaymentMethod>): Promise<PaymentMethod | undefined> {
+    // If this is set as default, we need to reset any existing default payment methods
+    if (paymentMethodData.isDefault) {
+      const [existingPaymentMethod] = await db
+        .select()
+        .from(paymentMethods)
+        .where(eq(paymentMethods.id, id));
+        
+      if (existingPaymentMethod) {
+        await db
+          .update(paymentMethods)
+          .set({ isDefault: false })
+          .where(
+            and(
+              eq(paymentMethods.userId, existingPaymentMethod.userId),
+              eq(paymentMethods.isDefault, true),
+              sql`${paymentMethods.id} != ${id}`
+            )
+          );
+      }
+    }
+    
+    const [updatedPaymentMethod] = await db
+      .update(paymentMethods)
+      .set(paymentMethodData)
+      .where(eq(paymentMethods.id, id))
+      .returning();
+      
+    return updatedPaymentMethod;
+  }
+
+  async setDefaultPaymentMethod(userId: number, paymentMethodId: number): Promise<PaymentMethod | undefined> {
+    // Reset all payment methods to non-default
+    await db
+      .update(paymentMethods)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(paymentMethods.userId, userId),
+          eq(paymentMethods.isDefault, true)
+        )
+      );
+      
+    // Set the new default
+    const [updatedPaymentMethod] = await db
+      .update(paymentMethods)
+      .set({ isDefault: true })
+      .where(
+        and(
+          eq(paymentMethods.id, paymentMethodId),
+          eq(paymentMethods.userId, userId)
+        )
+      )
+      .returning();
+      
+    if (updatedPaymentMethod) {
+      // Update the user's default payment method
+      await db
+        .update(users)
+        .set({ defaultPaymentMethodId: updatedPaymentMethod.stripePaymentMethodId })
+        .where(eq(users.id, userId));
+    }
+      
+    return updatedPaymentMethod;
+  }
+
+  async deletePaymentMethod(id: number): Promise<void> {
+    const [paymentMethod] = await db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.id, id));
+      
+    if (paymentMethod && paymentMethod.isDefault) {
+      // If this was the default payment method, clear the user's default payment method
+      await db
+        .update(users)
+        .set({ defaultPaymentMethodId: null })
+        .where(eq(users.id, paymentMethod.userId));
+    }
+      
+    await db
+      .delete(paymentMethods)
+      .where(eq(paymentMethods.id, id));
+  }
+  
+  // Subscription operations
+  async getSubscription(id: number): Promise<Subscription | undefined> {
+    const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.id, id));
+    return subscription;
+  }
+
+  async getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId));
+    return subscription;
+  }
+
+  async getSubscriptionsByUserId(userId: number): Promise<Subscription[]> {
+    return db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt));
+  }
+
+  async getActiveSubscription(userId: number): Promise<Subscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, userId),
+          eq(subscriptions.status, 'active')
+        )
+      );
+    return subscription;
+  }
+
+  async createSubscription(subscriptionData: InsertSubscription): Promise<Subscription> {
+    const [subscription] = await db
+      .insert(subscriptions)
+      .values(subscriptionData)
+      .returning();
+      
+    // Update the user's subscription info
+    await db
+      .update(users)
+      .set({ 
+        stripeSubscriptionId: subscriptionData.stripeSubscriptionId,
+        subscriptionStatus: subscriptionData.status,
+        subscriptionTier: subscriptionData.tier,
+        subscriptionStartDate: subscriptionData.currentPeriodStart,
+        subscriptionEndDate: subscriptionData.currentPeriodEnd
+      })
+      .where(eq(users.id, subscriptionData.userId));
+      
+    return subscription;
+  }
+
+  async updateSubscription(id: number, subscriptionData: Partial<InsertSubscription>): Promise<Subscription | undefined> {
+    const [updatedSubscription] = await db
+      .update(subscriptions)
+      .set(subscriptionData)
+      .where(eq(subscriptions.id, id))
+      .returning();
+      
+    if (updatedSubscription) {
+      // Update the user's subscription info if status, tier, or period changes
+      const userUpdate: any = {};
+      
+      if (subscriptionData.status) {
+        userUpdate.subscriptionStatus = subscriptionData.status;
+      }
+      
+      if (subscriptionData.tier) {
+        userUpdate.subscriptionTier = subscriptionData.tier;
+      }
+      
+      if (subscriptionData.currentPeriodStart) {
+        userUpdate.subscriptionStartDate = subscriptionData.currentPeriodStart;
+      }
+      
+      if (subscriptionData.currentPeriodEnd) {
+        userUpdate.subscriptionEndDate = subscriptionData.currentPeriodEnd;
+      }
+      
+      if (Object.keys(userUpdate).length > 0) {
+        await db
+          .update(users)
+          .set(userUpdate)
+          .where(eq(users.id, updatedSubscription.userId));
+      }
+    }
+      
+    return updatedSubscription;
+  }
+
+  async cancelSubscription(id: number, cancelAtPeriodEnd: boolean): Promise<Subscription | undefined> {
+    const [cancelledSubscription] = await db
+      .update(subscriptions)
+      .set({ 
+        status: cancelAtPeriodEnd ? 'active' : 'canceled',
+        cancelAtPeriodEnd,
+        updatedAt: new Date()
+      })
+      .where(eq(subscriptions.id, id))
+      .returning();
+      
+    if (cancelledSubscription) {
+      // Update the user's subscription status
+      await db
+        .update(users)
+        .set({ 
+          subscriptionStatus: cancelAtPeriodEnd ? 'active' : 'canceled'
+        })
+        .where(eq(users.id, cancelledSubscription.userId));
+    }
+      
+    return cancelledSubscription;
+  }
 }
 
 export const storage = new DatabaseStorage();

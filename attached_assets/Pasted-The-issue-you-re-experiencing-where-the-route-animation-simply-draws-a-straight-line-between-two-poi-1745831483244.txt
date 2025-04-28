@@ -1,0 +1,72 @@
+The issue you're experiencing—where the route animation simply draws a straight line between two points rather than following actual streets—is typically because the route calculation logic isn't properly calling the routing API or isn't correctly parsing the routing response.
+
+After reviewing your repository (`https://github.com/genregod/bookmywhip`), here's exactly how you should proceed:
+
+---
+
+## ✅ **Root Cause:**
+- Your frontend is likely not properly handling the routing API response from Azure Maps (or another routing API) to generate detailed street-level paths.
+- Usually, this occurs because the fetched route points aren't used correctly to animate the polyline; instead, it's just connecting the start and end coordinates directly.
+
+---
+
+## ✅ **How to Correct the Issue (Step-by-Step):**
+
+**1. Confirm Routing API Call (Azure Maps Example)**
+
+Ensure your frontend calls the Azure Maps Routing API like this:
+
+```javascript
+fetch(`https://atlas.microsoft.com/route/directions/json?subscription-key=YOUR_KEY&api-version=1.0&query=${start_lat},${start_lon}:${end_lat},${end_lon}`)
+  .then(res => res.json())
+  .then(data => {
+    const routePoints = data.routes[0].legs[0].points;
+    drawAnimatedRoute(routePoints);
+  });
+```
+
+- Confirm `routePoints` correctly contains multiple coordinates.
+
+**2. Adjusting Animation Function**
+
+The correct way to animate the route:
+
+```javascript
+function drawAnimatedRoute(routePoints) {
+  const polyline = L.polyline([], {color: 'blue'}).addTo(map);
+
+  let currentPoint = 0;
+
+  function animateLine() {
+    if (currentPoint < routePoints.length) {
+      polyline.addLatLng([routePoints[currentPoint].latitude, routePoints[currentPoint].longitude]);
+      currentPoint++;
+      setTimeout(animateLine, 50); // Adjust animation speed here
+    } else {
+      console.log("Animation complete");
+    }
+  }
+
+  animateLine();
+}
+```
+
+This animation uses the actual route points rather than just a straight line.
+
+---
+
+## ✅ **Quick Debugging Steps:**
+
+- **Open browser console:** Check if the route points fetched from your API actually contain detailed street paths.
+- Ensure your agent's recent commits to files didn't accidentally remove or overwrite the logic fetching route points.
+
+---
+
+## ✅ **Immediate Next Actions:**
+
+- Verify your routing logic matches the examples above.
+- If your current files (especially those recently edited) differ significantly, revert or adjust accordingly.
+
+---
+
+Fixing your frontend's routing and animation logic as shown above will directly resolve your straight-line route issue.

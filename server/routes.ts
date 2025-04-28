@@ -870,29 +870,447 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Stripe payment routes
   if (stripe) {
+    // Create a setup intent for adding a new payment method
+    app.post('/api/setup-intent', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        
+        // Get or create a Stripe customer for the user
+        let stripeCustomerId = user.stripeCustomerId;
+        
+        if (!stripeCustomerId) {
+          // Create a new customer
+          const customer = await stripe.customers.create({
+            name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username,
+            email: user.email,
+            metadata: {
+              userId: user.id.toString()
+            }
+          });
+          
+          stripeCustomerId = customer.id;
+          
+          // Update user with Stripe customer ID
+          await storage.updateUserStripeInfo(user.id, { stripeCustomerId });
+        }
+        
+        // Create a setup intent for the customer
+        const setupIntent = await stripe.setupIntents.create({
+          customer: stripeCustomerId,
+          usage: 'off_session', // Allow the payment method to be used for future payments
+        });
+        
+        res.json({ clientSecret: setupIntent.client_secret });
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error creating setup intent: ' + error.message });
+      }
+    });
+    
+    // Retrieve saved payment methods
+    app.get('/api/payment-methods', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        
+        if (!user.stripeCustomerId) {
+          return res.json([]);
+        }
+        
+        // Get saved payment methods from database
+        const savedPaymentMethods = await storage.getPaymentMethodsByUserId(user.id);
+        
+        res.json(savedPaymentMethods);
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error retrieving payment methods: ' + error.message });
+      }
+    });
+    
+    // Add a new payment method
+    app.post('/api/payment-methods', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        const { paymentMethodId } = req.body;
+        
+        if (!user.stripeCustomerId) {
+          return res.status(400).json({ message: 'No Stripe customer ID found for user' });
+        }
+        
+        if (!paymentMethodId) {
+          return res.status(400).json({ message: 'Payment method ID is required' });
+        }
+        
+        // Attach the payment method to the customer
+        await stripe.paymentMethods.attach(paymentMethodId, {
+          customer: user.stripeCustomerId,
+        });
+        
+        // Retrieve the payment method details
+        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+        
+        // Check if this is the first payment method (make it default if so)
+        const existingPaymentMethods = await storage.getPaymentMethodsByUserId(user.id);
+        const isDefault = existingPaymentMethods.length === 0;
+        
+        if (isDefault) {
+          // Set as default payment method for the customer
+          await stripe.customers.update(user.stripeCustomerId, {
+            invoice_settings: {
+              default_payment_method: paymentMethodId,
+            },
+          });
+        }
+        
+        // Save payment method in database
+        const card = paymentMethod.card;
+        const newPaymentMethod = await storage.createPaymentMethod({
+          userId: user.id,
+          stripePaymentMethodId: paymentMethodId,
+          type: paymentMethod.type,
+          isDefault,
+          brand: card ? card.brand : undefined,
+          last4: card ? card.last4 : undefined,
+          expiryMonth: card ? card.exp_month : undefined,
+          expiryYear: card ? card.exp_year : undefined,
+        });
+        
+        res.status(201).json(newPaymentMethod);
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error adding payment method: ' + error.message });
+      }
+    });
+    
+    // Set a payment method as default
+    app.post('/api/payment-methods/:id/default', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        const paymentMethodId = parseInt(req.params.id);
+        
+        if (!user.stripeCustomerId) {
+          return res.status(400).json({ message: 'No Stripe customer ID found for user' });
+        }
+        
+        // Get the payment method from database
+        const paymentMethod = await storage.getPaymentMethod(paymentMethodId);
+        
+        if (!paymentMethod) {
+          return res.status(404).json({ message: 'Payment method not found' });
+        }
+        
+        if (paymentMethod.userId !== user.id) {
+          return res.status(403).json({ message: 'You do not have permission to update this payment method' });
+        }
+        
+        // Set as default in Stripe
+        await stripe.customers.update(user.stripeCustomerId, {
+          invoice_settings: {
+            default_payment_method: paymentMethod.stripePaymentMethodId,
+          },
+        });
+        
+        // Set as default in database
+        const updatedPaymentMethod = await storage.setDefaultPaymentMethod(user.id, paymentMethodId);
+        
+        res.json(updatedPaymentMethod);
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error setting default payment method: ' + error.message });
+      }
+    });
+    
+    // Delete a payment method
+    app.delete('/api/payment-methods/:id', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        const paymentMethodId = parseInt(req.params.id);
+        
+        // Get the payment method from database
+        const paymentMethod = await storage.getPaymentMethod(paymentMethodId);
+        
+        if (!paymentMethod) {
+          return res.status(404).json({ message: 'Payment method not found' });
+        }
+        
+        if (paymentMethod.userId !== user.id) {
+          return res.status(403).json({ message: 'You do not have permission to delete this payment method' });
+        }
+        
+        // Detach from Stripe customer
+        await stripe.paymentMethods.detach(paymentMethod.stripePaymentMethodId);
+        
+        // Delete from database
+        await storage.deletePaymentMethod(paymentMethodId);
+        
+        res.status(204).end();
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error deleting payment method: ' + error.message });
+      }
+    });
+    
+    // Create a subscription
+    app.post('/api/subscriptions', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        const { priceId, paymentMethodId } = req.body;
+        
+        if (!user.stripeCustomerId) {
+          return res.status(400).json({ message: 'No Stripe customer ID found for user' });
+        }
+        
+        if (!priceId) {
+          return res.status(400).json({ message: 'Price ID is required' });
+        }
+        
+        // Get the price details
+        const price = await stripe.prices.retrieve(priceId);
+        
+        // Check for existing active subscription
+        const existingSubscription = await storage.getActiveSubscription(user.id);
+        
+        if (existingSubscription) {
+          return res.status(400).json({ 
+            message: 'You already have an active subscription', 
+            subscriptionId: existingSubscription.id 
+          });
+        }
+        
+        // Create subscription
+        const subscriptionData: any = {
+          customer: user.stripeCustomerId,
+          items: [{ price: priceId }],
+          expand: ['latest_invoice.payment_intent'],
+        };
+        
+        // If a specific payment method is provided, use it
+        if (paymentMethodId) {
+          subscriptionData.default_payment_method = paymentMethodId;
+        }
+        
+        const subscription = await stripe.subscriptions.create(subscriptionData);
+        
+        // Save subscription in database
+        const newSubscription = await storage.createSubscription({
+          userId: user.id,
+          stripeSubscriptionId: subscription.id,
+          status: subscription.status,
+          tier: price.nickname || 'default',
+          currentPeriodStart: new Date(subscription.current_period_start * 1000),
+          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        });
+        
+        // If the subscription requires payment, return the payment intent client secret
+        let clientSecret = null;
+        if (subscription.latest_invoice && subscription.latest_invoice.payment_intent) {
+          clientSecret = subscription.latest_invoice.payment_intent.client_secret;
+        }
+        
+        res.status(201).json({
+          subscription: newSubscription,
+          clientSecret
+        });
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error creating subscription: ' + error.message });
+      }
+    });
+    
+    // Get user's subscriptions
+    app.get('/api/subscriptions', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        
+        // Get subscriptions from database
+        const subscriptions = await storage.getSubscriptionsByUserId(user.id);
+        
+        res.json(subscriptions);
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error retrieving subscriptions: ' + error.message });
+      }
+    });
+    
+    // Cancel a subscription
+    app.post('/api/subscriptions/:id/cancel', async (req: Request, res: Response) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
+        
+        const user = req.user as any;
+        const subscriptionId = parseInt(req.params.id);
+        const { cancelAtPeriodEnd = true } = req.body;
+        
+        // Get the subscription from database
+        const subscription = await storage.getSubscription(subscriptionId);
+        
+        if (!subscription) {
+          return res.status(404).json({ message: 'Subscription not found' });
+        }
+        
+        if (subscription.userId !== user.id) {
+          return res.status(403).json({ message: 'You do not have permission to cancel this subscription' });
+        }
+        
+        // Cancel in Stripe
+        if (cancelAtPeriodEnd) {
+          // Cancel at the end of the current period
+          await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+            cancel_at_period_end: true,
+          });
+        } else {
+          // Cancel immediately
+          await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+        }
+        
+        // Update in database
+        const updatedSubscription = await storage.cancelSubscription(subscriptionId, cancelAtPeriodEnd);
+        
+        res.json(updatedSubscription);
+      } catch (error: any) {
+        res.status(500).json({ message: 'Error cancelling subscription: ' + error.message });
+      }
+    });
+    
+    // Create a payment intent for one-time payments
     app.post('/api/create-payment-intent', async (req: Request, res: Response) => {
       try {
         if (!req.isAuthenticated()) {
           return res.status(401).json({ message: 'Not authenticated' });
         }
         
+        const user = req.user as any;
         const { amount, rideId } = req.body;
         
         if (!amount || typeof amount !== 'number') {
           return res.status(400).json({ message: 'Invalid amount' });
         }
         
-        const paymentIntent = await stripe.paymentIntents.create({
+        const paymentIntentData: any = {
           amount: Math.round(amount * 100), // Convert to cents
           currency: 'usd',
           metadata: {
+            userId: user.id.toString(),
             rideId: rideId ? rideId.toString() : undefined
           }
-        });
+        };
+        
+        // If user has a Stripe customer ID, associate the payment with the customer
+        if (user.stripeCustomerId) {
+          paymentIntentData.customer = user.stripeCustomerId;
+          
+          // If the user has a default payment method, use it
+          if (user.defaultPaymentMethodId) {
+            paymentIntentData.payment_method = user.defaultPaymentMethodId;
+            paymentIntentData.off_session = true;
+            paymentIntentData.confirm = true;
+          }
+        }
+        
+        const paymentIntent = await stripe.paymentIntents.create(paymentIntentData);
         
         res.json({ clientSecret: paymentIntent.client_secret });
       } catch (error: any) {
         res.status(500).json({ message: 'Error creating payment intent: ' + error.message });
+      }
+    });
+    
+    // Stripe webhook handler
+    app.post('/api/stripe-webhook', async (req: Request, res: Response) => {
+      const signature = req.headers['stripe-signature'] as string;
+      
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        return res.status(400).json({ message: 'Stripe webhook secret not configured' });
+      }
+      
+      try {
+        const event = stripe.webhooks.constructEvent(
+          req.body,
+          signature,
+          process.env.STRIPE_WEBHOOK_SECRET
+        );
+        
+        // Handle the event
+        switch (event.type) {
+          case 'payment_intent.succeeded':
+            const paymentIntent = event.data.object as Stripe.PaymentIntent;
+            // Update ride payment status if this is a ride payment
+            if (paymentIntent.metadata.rideId) {
+              await storage.updateRidePaymentInfo(
+                parseInt(paymentIntent.metadata.rideId),
+                {
+                  paymentIntentId: paymentIntent.id,
+                  paymentStatus: paymentIntent.status
+                }
+              );
+            }
+            break;
+            
+          case 'payment_method.attached':
+            const paymentMethod = event.data.object as Stripe.PaymentMethod;
+            // Payment method was attached to a customer
+            console.log('Payment method attached:', paymentMethod.id);
+            break;
+            
+          case 'customer.subscription.created':
+          case 'customer.subscription.updated':
+            const subscription = event.data.object as Stripe.Subscription;
+            // Update subscription in database
+            const dbSubscription = await storage.getSubscriptionByStripeId(subscription.id);
+            
+            if (dbSubscription) {
+              await storage.updateSubscription(dbSubscription.id, {
+                status: subscription.status,
+                currentPeriodStart: new Date(subscription.current_period_start * 1000),
+                currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+                cancelAtPeriodEnd: subscription.cancel_at_period_end,
+              });
+            }
+            break;
+            
+          case 'customer.subscription.deleted':
+            const deletedSubscription = event.data.object as Stripe.Subscription;
+            // Update subscription in database as canceled
+            const deletedDbSubscription = await storage.getSubscriptionByStripeId(deletedSubscription.id);
+            
+            if (deletedDbSubscription) {
+              await storage.updateSubscription(deletedDbSubscription.id, {
+                status: 'canceled',
+              });
+            }
+            break;
+            
+          default:
+            console.log(`Unhandled event type: ${event.type}`);
+        }
+        
+        res.json({ received: true });
+      } catch (error: any) {
+        console.error('Webhook error:', error.message);
+        res.status(400).send(`Webhook Error: ${error.message}`);
       }
     });
   }
