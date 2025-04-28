@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useAuth } from '../hooks/useAuth';
+import { THEME_COLORS } from '../utils/config';
 
-// Screens (we'll create these next)
+// Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import HomeScreen from '../screens/home/HomeScreen';
@@ -45,12 +46,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Colors based on our web application
+// Colors
 const colors = {
-  primary: '#10b981', // green-500 from Tailwind
-  background: '#ffffff',
-  text: '#111827',    // gray-900 from Tailwind
-  border: '#e5e7eb',  // gray-200 from Tailwind
+  primary: THEME_COLORS.PRIMARY,
+  background: THEME_COLORS.BACKGROUND,
+  text: THEME_COLORS.TEXT,
+  border: THEME_COLORS.BORDER,
 };
 
 // Auth Navigator (Login/Register screens)
@@ -117,28 +118,11 @@ const MainNavigator = () => {
 
 // Root Navigator
 const AppNavigator = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [userToken, setUserToken] = useState<string | null>(null);
-
-  // Check if user is logged in
-  useEffect(() => {
-    const bootstrapAsync = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        setUserToken(token);
-      } catch (e) {
-        console.error('Failed to get token from storage', e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    bootstrapAsync();
-  }, []);
+  const { isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -147,7 +131,7 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {userToken == null ? (
+        {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : (
           <>
