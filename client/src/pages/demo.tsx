@@ -74,11 +74,17 @@ export default function DemoPage() {
           </p>
         </div>
         
-        {/* Link to Route Preview Demo */}
-        <div className="mb-6 flex">
+        {/* Links to Demo Pages */}
+        <div className="mb-6 flex gap-3">
           <Button variant="outline" asChild>
             <Link href="/route-preview-demo">
               Go to Route Preview Demo
+            </Link>
+          </Button>
+          
+          <Button variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800" asChild>
+            <Link href="/route-animation-test">
+              Animation Test Page
             </Link>
           </Button>
         </div>
