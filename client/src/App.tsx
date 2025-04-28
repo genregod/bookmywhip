@@ -24,6 +24,9 @@ import RoutePreviewDemo from "@/pages/route-preview-demo";
 import RouteAnimationTest from "@/pages/route-animation-test";
 import AzureMapsDemo from "@/pages/azure-maps-demo";
 import RealTimeTrackingDemo from "@/pages/real-time-tracking-demo";
+import AudioPreferencesPage from "@/pages/audio-preferences";
+import RideSoundtrackPage from "@/pages/ride-soundtrack";
+import SoundtrackDemoPage from "@/pages/soundtrack-demo";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";
@@ -116,6 +119,8 @@ function Router() {
       <Route path="/settings" component={(props: any) => <ProtectedRoute component={Settings} {...props} />} />
       <Route path="/earnings" component={(props: any) => <ProtectedRoute component={Earnings} {...props} />} />
       <Route path="/admin" component={(props: any) => <ProtectedRoute component={Admin} adminOnly={true} {...props} />} />
+      <Route path="/audio-preferences" component={(props: any) => <ProtectedRoute component={AudioPreferencesPage} {...props} />} />
+      <Route path="/ride-soundtrack" component={(props: any) => <ProtectedRoute component={RideSoundtrackPage} {...props} />} />
       <Route path="/demo" component={Demo} />
       <Route path="/socket-demo" component={SocketDemo} />
       <Route path="/waze-demo" component={WazeDemoPage} />
@@ -142,6 +147,7 @@ function DemoRoutes() {
       <Route path="/route-animation-test" component={RouteAnimationTest} />
       <Route path="/azure-maps-demo" component={AzureMapsDemo} />
       <Route path="/real-time-tracking-demo" component={RealTimeTrackingDemo} />
+      <Route path="/soundtrack-demo" component={SoundtrackDemoPage} />
       <Route path="*">
         <Redirect to="/demo" />
       </Route>
@@ -158,7 +164,8 @@ function App() {
                     window.location.pathname.includes('/route-preview-demo') ||
                     window.location.pathname.includes('/route-animation-test') ||
                     window.location.pathname.includes('/azure-maps-demo') ||
-                    window.location.pathname.includes('/real-time-tracking-demo');
+                    window.location.pathname.includes('/real-time-tracking-demo') ||
+                    window.location.pathname.includes('/soundtrack-demo');
   
   if (isDemoMode) {
     return (

@@ -99,6 +99,12 @@ export default function DemoPage() {
               Real-Time GPS Tracking
             </Link>
           </Button>
+          
+          <Button variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:text-purple-800" asChild>
+            <Link href="/soundtrack-demo">
+              Ride Soundtrack Generator
+            </Link>
+          </Button>
         </div>
         
         <Tabs defaultValue="progress">
