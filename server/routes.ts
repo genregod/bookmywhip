@@ -563,9 +563,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const newRide = await storage.createRide(rideData);
       
-      // Notify available drivers about new ride request using Socket.IO
+      // Notify available drivers about new ride request using WebSocket service
       // In a real app, we would implement proximity-based notification
-      driverNamespace.emit('new_ride_request', {
+      webSocketService.broadcastAll('new-ride-request', {
         rideId: newRide.id,
         pickupLocation: {
           latitude: newRide.pickupLatitude,
@@ -579,8 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         estimatedFare: newRide.estimatedFare,
         estimatedDistance: newRide.estimatedDistance,
-        estimatedDuration: newRide.estimatedDuration,
-        timestamp: new Date().toISOString()
+        estimatedDuration: newRide.estimatedDuration
       });
       
       res.status(201).json(newRide);
@@ -641,8 +640,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Failed to accept ride' });
       }
       
-      // Notify the rider using Socket.IO
-      riderNamespace.to(`user:${ride.riderId}`).emit('ride_accepted', {
+      // Notify the rider using WebSocket service
+      webSocketService.notifyUser(ride.riderId, 'ride-accepted', {
         ride: acceptedRide
       });
       
@@ -683,8 +682,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Failed to start ride' });
       }
       
-      // Notify the rider using Socket.IO
-      riderNamespace.to(`user:${ride.riderId}`).emit('ride_started', {
+      // Notify the rider using WebSocket service
+      webSocketService.notifyUser(ride.riderId, 'ride-started', {
         ride: startedRide
       });
       
@@ -756,8 +755,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Notify the rider using Socket.IO
-      riderNamespace.to(`user:${ride.riderId}`).emit('ride_completed', {
+      // Notify the rider using WebSocket service
+      webSocketService.notifyUser(ride.riderId, 'ride-completed', {
         ride: completedRide
       });
       
@@ -800,15 +799,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Failed to cancel ride' });
       }
       
-      // Notify the other party using Socket.IO
+      // Notify the other party using WebSocket service
       if (currentUser.id === ride.riderId && ride.driverId) {
         // Rider cancelled, notify driver
-        driverNamespace.to(`user:${ride.driverId}`).emit('ride_cancelled', {
+        webSocketService.notifyUser(ride.driverId, 'ride-cancelled', {
           ride: cancelledRide
         });
       } else if (currentUser.id === ride.driverId) {
         // Driver cancelled, notify rider
-        riderNamespace.to(`user:${ride.riderId}`).emit('ride_cancelled', {
+        webSocketService.notifyUser(ride.riderId, 'ride-cancelled', {
           ride: cancelledRide
         });
       }
@@ -975,8 +974,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In a real implementation, we would update the driver's status in the database
       // For now, we'll just return success
       
-      // Notify all clients about the driver's status change using Socket.IO
-      io.emit('driver_status_update', {
+      // Notify all clients about the driver's status change using WebSocket service
+      webSocketService.broadcastAll('driver-status-update', {
         driverId: currentUser.id,
         isOnline: isOnline
       });
