@@ -1,0 +1,38 @@
+name: Mock Build Process
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/bookmywhip/**'
+
+jobs:
+  mock-build:
+    name: Mock Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          cd mobile/bookmywhip
+          npm ci
+      
+      - name: Run mock build
+        run: |
+          cd mobile/bookmywhip
+          npm run mock-build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: mobile/bookmywhip/build-output
