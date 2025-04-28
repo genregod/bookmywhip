@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useMap, Polyline, Marker } from 'react-leaflet';
 import { LatLngBounds, LatLngExpression, Icon, DivIcon } from 'leaflet';
 import { generateEnhancedRoute, calculateCameraPath, generateRouteAnimationSteps, getRouteBounds } from '@/lib/mapUtils';
@@ -77,7 +77,16 @@ interface AnimatedRoutePreviewProps {
   boundsPadding?: number;
 }
 
-export default function AnimatedRoutePreview({
+// Define ref type
+export interface AnimatedRoutePreviewRef {
+  startAnimation: () => void;
+  pauseAnimation: () => void;
+  resetAnimation: () => void;
+  isAnimating: boolean;
+  isCompleted: boolean;
+}
+
+const AnimatedRoutePreview = forwardRef<AnimatedRoutePreviewRef, AnimatedRoutePreviewProps>(({
   startPoint,
   endPoint,
   autoStart = true,
@@ -93,7 +102,7 @@ export default function AnimatedRoutePreview({
   endLabel = 'Destination',
   fitBounds = true,
   boundsPadding = 0.05
-}: AnimatedRoutePreviewProps) {
+}, ref) => {
   const map = useMap();
   const [route, setRoute] = useState<Array<[number, number]>>([]);
   const [visibleRoute, setVisibleRoute] = useState<Array<[number, number]>>([]);
@@ -103,6 +112,24 @@ export default function AnimatedRoutePreview({
   const [animationComplete, setAnimationComplete] = useState(false);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  
+  // Add pause animation functionality
+  const pauseAnimation = () => {
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+      setIsAnimating(false);
+    }
+  };
+  
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    startAnimation,
+    pauseAnimation,
+    resetAnimation,
+    isAnimating,
+    isCompleted: animationComplete
+  }));
 
   // Generate route on component mount or when points change
   useEffect(() => {
@@ -315,4 +342,6 @@ export default function AnimatedRoutePreview({
       )}
     </>
   );
-}
+});
+
+export default AnimatedRoutePreview;

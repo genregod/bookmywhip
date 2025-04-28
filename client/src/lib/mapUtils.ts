@@ -348,10 +348,14 @@ export function generateEnhancedRoute(
   endLng: number,
   complexity: number = 5
 ): Array<[number, number]> {
+  console.log('generateEnhancedRoute called with:', { startLat, startLng, endLat, endLng, complexity });
+  
   // Number of points scales with complexity and distance
   const distance = calculateDistance(startLat, startLng, endLat, endLng);
   const basePointCount = Math.max(10, Math.floor(distance * 3));
   const pointCount = Math.min(100, Math.floor(basePointCount * (complexity / 5)));
+  
+  console.log('Route generation parameters:', { distance, basePointCount, pointCount });
   
   const points: Array<[number, number]> = [];
   points.push([startLat, startLng]);
@@ -531,9 +535,12 @@ export function generateRouteAnimationSteps(
   route: Array<[number, number]>,
   steps: number = 30
 ): Array<Array<[number, number]>> {
+  console.log('generateRouteAnimationSteps called with route length:', route.length, 'steps:', steps);
+  
   const animationSteps: Array<Array<[number, number]>> = [];
   
   if (route.length <= 1) {
+    console.log('Route too short, filling with same route');
     return Array(steps).fill(route);
   }
   
@@ -546,6 +553,7 @@ export function generateRouteAnimationSteps(
     animationSteps.push(partialRoute);
   }
   
+  console.log('Generated animation steps:', animationSteps.length);
   return animationSteps;
 }
 
