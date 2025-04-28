@@ -1,445 +1,278 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  Image,
   TouchableOpacity,
+  FlatList,
+  SafeAreaView,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useNavigation } from '@react-navigation/native';
 
-type RouteParams = {
-  rideId: number;
-};
+// Mock data for the soundtrack playlist
+const MOCK_PLAYLIST = [
+  { id: '1', title: 'Cruise Control', artist: 'The Navigators', duration: '3:45' },
+  { id: '2', title: 'Highway Journey', artist: 'Road Kings', duration: '4:12' },
+  { id: '3', title: 'City Lights', artist: 'Urban Voyagers', duration: '3:21' },
+  { id: '4', title: 'Morning Drive', artist: 'Dawn Riders', duration: '2:58' },
+  { id: '5', title: 'Sunset Road', artist: 'Twilight Travelers', duration: '4:05' },
+  { id: '6', title: 'Downtown Groove', artist: 'Metropolitan', duration: '3:34' },
+  { id: '7', title: 'Coastal Highway', artist: 'Ocean Drive', duration: '5:20' },
+  { id: '8', title: 'Rush Hour', artist: 'Traffic Jam', duration: '2:47' },
+];
 
 const SoundtrackScreen = () => {
-  const route = useRoute();
-  const { rideId } = route.params as RouteParams;
-  
-  const [isLoading, setIsLoading] = useState(true);
+  const navigation = useNavigation();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  
-  // Soundtrack data
-  const [soundtrack, setSoundtrack] = useState({
-    name: '',
-    description: '',
-    genre: '',
-    mood: '',
-    duration: 0,
-    trackCount: 0,
-    coverImage: null,
-    tracks: [],
-  });
+  const [currentTrack, setCurrentTrack] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Simulate fetching soundtrack data
-  useEffect(() => {
-    // In a real app, you'd fetch this from your API using the rideId
+  const handleGeneratePlaylist = () => {
+    setIsGenerating(true);
+    
+    // Simulate playlist generation API call
     setTimeout(() => {
-      setSoundtrack({
-        name: 'Urban Cruiser',
-        description: 'An energetic playlist to keep you moving through the city streets',
-        genre: 'Electronic',
-        mood: 'Energetic',
-        duration: 45, // minutes
-        trackCount: 12,
-        coverImage: null, // This would be a URL to an image
-        tracks: [
-          { id: 1, title: 'City Lights', artist: 'Neon Drive', duration: '3:24' },
-          { id: 2, title: 'Midnight Cruise', artist: 'Urban Beats', duration: '4:12' },
-          { id: 3, title: 'Downtown Flow', artist: 'Street Rhythm', duration: '3:56' },
-          { id: 4, title: 'Electric Avenue', artist: 'Pulse Wave', duration: '3:45' },
-          { id: 5, title: 'Traffic Jam', artist: 'Metro Sounds', duration: '3:30' },
-          { id: 6, title: 'Rush Hour', artist: 'City Pulse', duration: '4:02' },
-          { id: 7, title: 'Neon Signs', artist: 'Night Driver', duration: '3:51' },
-          { id: 8, title: 'Urban Jungle', artist: 'Concrete Beats', duration: '3:38' },
-          { id: 9, title: 'Street Corner', artist: 'Traffic Light', duration: '4:15' },
-          { id: 10, title: 'Fast Lane', artist: 'Highway Rhythm', duration: '3:44' },
-          { id: 11, title: 'Skyline View', artist: 'Tower Sounds', duration: '3:29' },
-          { id: 12, title: 'Journey\'s End', artist: 'Arrival Point', duration: '4:32' },
-        ],
-      });
-      setIsLoading(false);
-    }, 1500);
-  }, [rideId]);
+      setIsGenerating(false);
+    }, 2000);
+  };
 
-  const togglePlayPause = () => {
+  const handlePlayTrack = (trackId: string) => {
+    setIsLoading(true);
+    
+    // Simulate loading the track
+    setTimeout(() => {
+      setCurrentTrack(trackId);
+      setIsPlaying(true);
+      setIsLoading(false);
+    }, 1000);
+  };
+
+  const handleTogglePlayPause = () => {
     setIsPlaying(!isPlaying);
   };
 
-  const nextTrack = () => {
-    if (currentTrackIndex < soundtrack.tracks.length - 1) {
-      setCurrentTrackIndex(currentTrackIndex + 1);
-    }
-  };
-
-  const prevTrack = () => {
-    if (currentTrackIndex > 0) {
-      setCurrentTrackIndex(currentTrackIndex - 1);
-    }
-  };
-
-  // Current track being "played"
-  const currentTrack = soundtrack.tracks[currentTrackIndex];
-
-  if (isLoading) {
+  const renderItem = ({ item }: { item: typeof MOCK_PLAYLIST[0] }) => {
+    const isActive = currentTrack === item.id;
+    
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10b981" />
-        <Text style={styles.loadingText}>Loading your soundtrack...</Text>
-      </View>
+      <TouchableOpacity 
+        style={[styles.trackItem, isActive && styles.activeTrack]}
+        onPress={() => handlePlayTrack(item.id)}
+      >
+        <View style={styles.trackInfo}>
+          <Text style={[styles.trackTitle, isActive && styles.activeText]}>
+            {item.title}
+          </Text>
+          <Text style={[styles.trackArtist, isActive && styles.activeText]}>
+            {item.artist}
+          </Text>
+        </View>
+        <Text style={[styles.trackDuration, isActive && styles.activeText]}>
+          {item.duration}
+        </Text>
+      </TouchableOpacity>
     );
-  }
+  };
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header with cover art */}
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.coverArtContainer}>
-          {soundtrack.coverImage ? (
-            <Image 
-              source={{ uri: soundtrack.coverImage }} 
-              style={styles.coverArt}
-              resizeMode="cover"
+        <Text style={styles.title}>Your Ride Soundtrack</Text>
+        <Text style={styles.subtitle}>
+          Custom playlist generated based on your preferences and route
+        </Text>
+      </View>
+
+      <View style={styles.playlistContainer}>
+        {isGenerating ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+            <Text style={styles.loadingText}>Generating your playlist...</Text>
+          </View>
+        ) : (
+          <>
+            <FlatList
+              data={MOCK_PLAYLIST}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.playlist}
             />
-          ) : (
-            <View style={styles.coverArtPlaceholder}>
-              <Icon name="music" size={80} color="#10b98150" />
-            </View>
-          )}
-        </View>
-        <Text style={styles.playlistName}>{soundtrack.name}</Text>
-        <Text style={styles.playlistDescription}>{soundtrack.description}</Text>
-        
-        <View style={styles.metadataContainer}>
-          <View style={styles.metadataItem}>
-            <Icon name="music-note" size={18} color="#10b981" />
-            <Text style={styles.metadataText}>
-              Genre: {soundtrack.genre}
-            </Text>
-          </View>
-          
-          <View style={styles.metadataItem}>
-            <Icon name="emoticon" size={18} color="#10b981" />
-            <Text style={styles.metadataText}>
-              Mood: {soundtrack.mood}
-            </Text>
-          </View>
-          
-          <View style={styles.metadataItem}>
-            <Icon name="clock-outline" size={18} color="#10b981" />
-            <Text style={styles.metadataText}>
-              {soundtrack.duration} minutes
-            </Text>
-          </View>
-          
-          <View style={styles.metadataItem}>
-            <Icon name="playlist-music" size={18} color="#10b981" />
-            <Text style={styles.metadataText}>
-              {soundtrack.trackCount} tracks
-            </Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Now Playing */}
-      <View style={styles.nowPlayingContainer}>
-        <Text style={styles.nowPlayingTitle}>Now Playing</Text>
-        
-        {currentTrack && (
-          <View style={styles.currentTrackContainer}>
-            <View style={styles.trackInfoContainer}>
-              <Text style={styles.currentTrackTitle}>{currentTrack.title}</Text>
-              <Text style={styles.currentTrackArtist}>{currentTrack.artist}</Text>
-            </View>
-            
-            <Text style={styles.trackDuration}>{currentTrack.duration}</Text>
-          </View>
-        )}
-        
-        <View style={styles.playerControls}>
-          <TouchableOpacity onPress={prevTrack} style={styles.controlButton}>
-            <Icon name="skip-previous" size={30} color="#374151" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseButton}>
-            <Icon name={isPlaying ? "pause" : "play"} size={30} color="#ffffff" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={nextTrack} style={styles.controlButton}>
-            <Icon name="skip-next" size={30} color="#374151" />
-          </TouchableOpacity>
-        </View>
-      </View>
+            <View style={styles.playerControls}>
+              {currentTrack && (
+                <View style={styles.nowPlaying}>
+                  <Text style={styles.nowPlayingLabel}>Now Playing:</Text>
+                  <Text style={styles.nowPlayingTitle}>
+                    {MOCK_PLAYLIST.find(track => track.id === currentTrack)?.title || ''}
+                  </Text>
+                </View>
+              )}
 
-      {/* Tracklist */}
-      <View style={styles.tracklistContainer}>
-        <Text style={styles.tracklistTitle}>Tracklist</Text>
-        
-        {soundtrack.tracks.map((track, index) => (
-          <TouchableOpacity 
-            key={track.id}
-            style={[
-              styles.trackItem,
-              currentTrackIndex === index && styles.currentTrackItem
-            ]}
-            onPress={() => setCurrentTrackIndex(index)}
-          >
-            <View style={styles.trackItemContent}>
-              <Text style={styles.trackNumber}>{index + 1}</Text>
-              <View style={styles.trackItemInfo}>
-                <Text 
-                  style={[
-                    styles.trackTitle,
-                    currentTrackIndex === index && styles.currentTrackItemText
-                  ]}
-                  numberOfLines={1}
-                >
-                  {track.title}
-                </Text>
-                <Text 
-                  style={[
-                    styles.trackArtist,
-                    currentTrackIndex === index && styles.currentTrackItemSubtext
-                  ]}
-                  numberOfLines={1}
-                >
-                  {track.artist}
-                </Text>
+              <View style={styles.controls}>
+                <TouchableOpacity style={styles.controlButton}>
+                  <Text style={styles.controlIcon}>⏮</Text>
+                </TouchableOpacity>
+                
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#4CAF50" />
+                ) : (
+                  <TouchableOpacity 
+                    style={[styles.controlButton, styles.playPauseButton]}
+                    onPress={handleTogglePlayPause}
+                    disabled={!currentTrack}
+                  >
+                    <Text style={styles.controlIcon}>
+                      {isPlaying ? '⏸' : '▶️'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity style={styles.controlButton}>
+                  <Text style={styles.controlIcon}>⏭</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            <Text 
-              style={[
-                styles.trackItemDuration,
-                currentTrackIndex === index && styles.currentTrackItemText
-              ]}
-            >
-              {track.duration}
-            </Text>
-          </TouchableOpacity>
-        ))}
+          </>
+        )}
       </View>
-      
-      {/* Call-to-action for Audio Preferences */}
-      <TouchableOpacity style={styles.preferencesButton}>
-        <Text style={styles.preferencesButtonText}>Customize Audio Preferences</Text>
+
+      <TouchableOpacity 
+        style={styles.generateButton}
+        onPress={handleGeneratePlaylist}
+        disabled={isGenerating}
+      >
+        <Text style={styles.generateButtonText}>
+          {isGenerating ? 'Generating...' : 'Generate New Playlist'}
+        </Text>
       </TouchableOpacity>
-    </ScrollView>
+    </SafeAreaView>
   );
 };
-
-const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  playlistContainer: {
+    flex: 1,
+    marginBottom: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    padding: 20,
   },
   loadingText: {
-    marginTop: 10,
-    color: '#6b7280',
+    marginTop: 16,
     fontSize: 16,
+    color: '#666',
   },
-  header: {
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#f9fafb', // gray-50
-  },
-  coverArtContainer: {
-    width: width - 100,
-    height: width - 100,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#f3f4f6', // gray-100
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  coverArt: {
-    width: '100%',
-    height: '100%',
-  },
-  coverArtPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ecfdf5', // green-50
-  },
-  playlistName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827', // gray-900
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  playlistDescription: {
-    fontSize: 16,
-    color: '#6b7280', // gray-500
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  metadataContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  metadataItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6', // gray-100
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    margin: 4,
-  },
-  metadataText: {
-    fontSize: 14,
-    color: '#374151', // gray-700
-    marginLeft: 6,
-  },
-  nowPlayingContainer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#f3f4f6', // gray-100
-  },
-  nowPlayingTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827', // gray-900
-    marginBottom: 15,
-  },
-  currentTrackContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  trackInfoContainer: {
-    flex: 1,
-  },
-  currentTrackTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827', // gray-900
-  },
-  currentTrackArtist: {
-    fontSize: 14,
-    color: '#6b7280', // gray-500
-  },
-  trackDuration: {
-    fontSize: 14,
-    color: '#6b7280', // gray-500
-  },
-  playerControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButton: {
-    padding: 10,
-  },
-  playPauseButton: {
-    backgroundColor: '#10b981', // primary green
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  tracklistContainer: {
-    padding: 20,
-  },
-  tracklistTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827', // gray-900
-    marginBottom: 15,
+  playlist: {
+    paddingBottom: 16,
   },
   trackItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6', // gray-100
-  },
-  currentTrackItem: {
-    backgroundColor: '#ecfdf5', // green-50
+    paddingHorizontal: 16,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    marginHorizontal: -10,
+    marginBottom: 8,
+    backgroundColor: '#f7f7f7',
   },
-  trackItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  activeTrack: {
+    backgroundColor: '#4CAF50',
+  },
+  trackInfo: {
     flex: 1,
-  },
-  trackNumber: {
-    width: 30,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280', // gray-500
-    textAlign: 'center',
-  },
-  trackItemInfo: {
-    flex: 1,
-    marginLeft: 10,
   },
   trackTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#111827', // gray-900
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
   trackArtist: {
-    fontSize: 13,
-    color: '#6b7280', // gray-500
-  },
-  trackItemDuration: {
     fontSize: 14,
-    color: '#6b7280', // gray-500
-    marginLeft: 10,
+    color: '#666',
   },
-  currentTrackItemText: {
-    color: '#059669', // green-600
-    fontWeight: '600',
+  trackDuration: {
+    fontSize: 14,
+    color: '#666',
   },
-  currentTrackItemSubtext: {
-    color: '#10b981', // green-500
+  activeText: {
+    color: '#fff',
   },
-  preferencesButton: {
-    backgroundColor: '#f3f4f6', // gray-100
-    borderRadius: 8,
+  playerControls: {
+    backgroundColor: '#f7f7f7',
+    borderRadius: 12,
     padding: 16,
-    margin: 20,
+  },
+  nowPlaying: {
+    marginBottom: 16,
     alignItems: 'center',
   },
-  preferencesButtonText: {
-    color: '#10b981', // primary green
+  nowPlayingLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  nowPlayingTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  controls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
+  playPauseButton: {
+    backgroundColor: '#4CAF50',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  controlIcon: {
+    fontSize: 24,
+    color: '#333',
+  },
+  generateButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+  },
+  generateButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
