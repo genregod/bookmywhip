@@ -350,113 +350,48 @@ export function generateEnhancedRoute(
 ): Array<[number, number]> {
   console.log('generateEnhancedRoute called with:', { startLat, startLng, endLat, endLng, complexity });
   
-  // Number of points scales with complexity and distance
+  // For our demo, we'll create a more direct route with just small variations
+  // to simulate a car moving along a realistic path
+  
+  // Number of points scales with distance
   const distance = calculateDistance(startLat, startLng, endLat, endLng);
-  const basePointCount = Math.max(10, Math.floor(distance * 3));
-  const pointCount = Math.min(100, Math.floor(basePointCount * (complexity / 5)));
+  const pointCount = Math.min(100, Math.max(20, Math.floor(distance * 2)));
   
-  console.log('Route generation parameters:', { distance, basePointCount, pointCount });
+  console.log('Route generation parameters:', { distance, pointCount });
   
-  const points: Array<[number, number]> = [];
-  points.push([startLat, startLng]);
+  const result: Array<[number, number]> = [];
   
-  // Create a main offset direction to simulate road detours
-  // The route will generally curve in this direction
-  const mainOffsetSeed = (startLat + startLng) * (endLat + endLng);
-  const mainOffsetDirection = Math.sin(mainOffsetSeed) > 0 ? 1 : -1;
+  // Always add the exact start point
+  result.push([startLat, startLng]);
   
-  // Calculate the midpoint with an offset to create a curved path
-  const midLat = (startLat + endLat) / 2;
-  const midLng = (startLng + endLng) / 2;
-  
-  // Perpendicular offset to make the route curve
-  // We create a vector perpendicular to the direct route
-  const directVectorLat = endLat - startLat;
-  const directVectorLng = endLng - startLng;
-  
-  // Perpendicular vector (rotate 90 degrees)
-  const perpVectorLat = -directVectorLng;
-  const perpVectorLng = directVectorLat;
-  
-  // Normalize the perpendicular vector
-  const perpVectorLength = Math.sqrt(perpVectorLat * perpVectorLat + perpVectorLng * perpVectorLng);
-  const normPerpVectorLat = perpVectorLat / perpVectorLength;
-  const normPerpVectorLng = perpVectorLng / perpVectorLength;
-  
-  // Scale the offset based on distance
-  const offsetScale = distance * 0.1 * mainOffsetDirection;
-  
-  // Generate route segments using control points
-  const controlPoints: Array<[number, number]> = [];
-  
-  // Start control point
-  controlPoints.push([startLat, startLng]);
-  
-  // Add intermediate control points
-  const numControlPoints = Math.min(5, Math.max(2, Math.floor(complexity / 2)));
-  
-  for (let i = 1; i <= numControlPoints; i++) {
-    const ratio = i / (numControlPoints + 1);
+  // Create intermediate points
+  for (let i = 1; i < pointCount; i++) {
+    const ratio = i / pointCount;
     
-    // Linear interpolation with perpendicular offset
-    // The offset is largest in the middle and diminishes at the ends
-    const offsetFactor = Math.sin(ratio * Math.PI) * offsetScale;
+    // Linear interpolation between start and end
+    let lat = startLat + (endLat - startLat) * ratio;
+    let lng = startLng + (endLng - startLng) * ratio;
     
-    const controlLat = startLat + directVectorLat * ratio + normPerpVectorLat * offsetFactor;
-    const controlLng = startLng + directVectorLng * ratio + normPerpVectorLng * offsetFactor;
+    // Add very small random variation to make it look like a real route
+    // The variation should be very subtle
+    const seed = (lat * lng * 1000) + i;
+    const maxVariation = 0.0005 * Math.min(complexity / 10, 1); // Max ~50m with complexity 10
     
-    // Add some variation to each control point
-    const variationSeed = (controlLat * 1000 + controlLng) * i;
-    const latVariation = Math.sin(variationSeed) * 0.002 * complexity; // Increases with complexity
-    const lngVariation = Math.cos(variationSeed) * 0.002 * complexity;
+    // Use sine and cosine to create a slight curve pattern to the route
+    const latVariation = Math.sin(ratio * Math.PI) * maxVariation;
+    const lngVariation = Math.cos(ratio * Math.PI) * maxVariation;
     
-    controlPoints.push([controlLat + latVariation, controlLng + lngVariation]);
+    // Apply the variation
+    lat += latVariation;
+    lng += lngVariation;
+    
+    result.push([lat, lng]);
   }
   
-  // End control point
-  controlPoints.push([endLat, endLng]);
+  // Always add the exact end point
+  result.push([endLat, endLng]);
   
-  // Interpolate between control points using cubic splines
-  for (let i = 0; i < controlPoints.length - 1; i++) {
-    const [p0Lat, p0Lng] = i > 0 ? controlPoints[i - 1] : controlPoints[i];
-    const [p1Lat, p1Lng] = controlPoints[i];
-    const [p2Lat, p2Lng] = controlPoints[i + 1];
-    const [p3Lat, p3Lng] = i < controlPoints.length - 2 ? controlPoints[i + 2] : controlPoints[i + 1];
-    
-    const segmentPoints = Math.max(2, Math.floor(pointCount / (controlPoints.length - 1)));
-    
-    // For the first segment, we've already added the start point
-    const startSegmentIndex = i === 0 ? 1 : 0;
-    
-    for (let j = startSegmentIndex; j <= segmentPoints; j++) {
-      const t = j / segmentPoints;
-      
-      // Cubic interpolation (Catmull-Rom spline)
-      const t2 = t * t;
-      const t3 = t2 * t;
-      
-      const lat = 0.5 * (
-        (2 * p1Lat) +
-        (-p0Lat + p2Lat) * t +
-        (2 * p0Lat - 5 * p1Lat + 4 * p2Lat - p3Lat) * t2 +
-        (-p0Lat + 3 * p1Lat - 3 * p2Lat + p3Lat) * t3
-      );
-      
-      const lng = 0.5 * (
-        (2 * p1Lng) +
-        (-p0Lng + p2Lng) * t +
-        (2 * p0Lng - 5 * p1Lng + 4 * p2Lng - p3Lng) * t2 +
-        (-p0Lng + 3 * p1Lng - 3 * p2Lng + p3Lng) * t3
-      );
-      
-      // Don't add the end point for internal segments (it'll be added as the start of the next segment)
-      if (i < controlPoints.length - 2 && j === segmentPoints) continue;
-      
-      points.push([lat, lng]);
-    }
-  }
-  
-  return points;
+  return result;
 }
 
 /**
