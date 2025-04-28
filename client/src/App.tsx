@@ -20,6 +20,7 @@ import Demo from "@/pages/demo";
 import SocketDemo from "@/pages/socket-demo";
 import WazeDemoPage from "@/pages/waze-demo";
 import NavigationDemo from "@/pages/navigation-demo";
+import RoutePreviewDemo from "@/pages/route-preview-demo";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";
@@ -134,6 +135,7 @@ function DemoRoutes() {
       <Route path="/socket-demo" component={SocketDemo} />
       <Route path="/waze-demo" component={WazeDemoPage} />
       <Route path="/navigation-demo" component={NavigationDemo} />
+      <Route path="/route-preview-demo" component={RoutePreviewDemo} />
       <Route path="*">
         <Redirect to="/demo" />
       </Route>
@@ -146,7 +148,8 @@ function App() {
   const isDemoMode = window.location.pathname.includes('/demo') || 
                     window.location.pathname.includes('/socket-demo') || 
                     window.location.pathname.includes('/waze-demo') ||
-                    window.location.pathname.includes('/navigation-demo');
+                    window.location.pathname.includes('/navigation-demo') ||
+                    window.location.pathname.includes('/route-preview-demo');
   
   if (isDemoMode) {
     return (
