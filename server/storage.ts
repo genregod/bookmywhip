@@ -13,7 +13,13 @@ import {
   InsertRide,
   settings,
   Setting,
-  InsertSetting
+  InsertSetting,
+  paymentMethods,
+  PaymentMethod,
+  InsertPaymentMethod,
+  subscriptions,
+  Subscription,
+  InsertSubscription
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, sql, desc, asc, or } from "drizzle-orm";
@@ -113,8 +119,27 @@ export interface IStorage {
   cancelRide(id: number, reason?: string): Promise<Ride | undefined>;
   rateRide(id: number, rating: number, isDriverRating: boolean): Promise<Ride | undefined>;
   
+  // Payment method operations
+  getPaymentMethod(id: number): Promise<PaymentMethod | undefined>;
+  getPaymentMethodByStripeId(stripePaymentMethodId: string): Promise<PaymentMethod | undefined>;
+  getPaymentMethodsByUserId(userId: number): Promise<PaymentMethod[]>;
+  getDefaultPaymentMethod(userId: number): Promise<PaymentMethod | undefined>;
+  createPaymentMethod(paymentMethod: InsertPaymentMethod): Promise<PaymentMethod>;
+  updatePaymentMethod(id: number, paymentMethodData: Partial<InsertPaymentMethod>): Promise<PaymentMethod | undefined>;
+  setDefaultPaymentMethod(userId: number, paymentMethodId: number): Promise<PaymentMethod | undefined>;
+  deletePaymentMethod(id: number): Promise<void>;
+  
+  // Subscription operations
+  getSubscription(id: number): Promise<Subscription | undefined>;
+  getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined>;
+  getSubscriptionsByUserId(userId: number): Promise<Subscription[]>;
+  getActiveSubscription(userId: number): Promise<Subscription | undefined>;
+  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  updateSubscription(id: number, subscriptionData: Partial<InsertSubscription>): Promise<Subscription | undefined>;
+  cancelSubscription(id: number, cancelAtPeriodEnd: boolean): Promise<Subscription | undefined>;
+  
   // Stripe related operations
-  updateUserStripeInfo(userId: number, stripeInfo: { stripeCustomerId?: string, stripeConnectedAccountId?: string }): Promise<User | undefined>;
+  updateUserStripeInfo(userId: number, stripeInfo: { stripeCustomerId?: string, stripeConnectedAccountId?: string, defaultPaymentMethodId?: string, stripeSubscriptionId?: string, subscriptionStatus?: string, subscriptionTier?: string, subscriptionStartDate?: Date, subscriptionEndDate?: Date }): Promise<User | undefined>;
   updateRidePaymentInfo(rideId: number, paymentInfo: { paymentIntentId: string, paymentStatus: string }): Promise<Ride | undefined>;
   
   // Settings operations

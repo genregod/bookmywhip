@@ -9,6 +9,8 @@ export const rideStatusEnum = pgEnum('ride_status', ['requested', 'accepted', 'i
 export const vehicleTypeEnum = pgEnum('vehicle_type', ['economy', 'premium']);
 
 // User model
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due', 'unpaid', 'trialing', 'incomplete', 'incomplete_expired']);
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   username: text('username').notNull().unique(),
@@ -21,8 +23,18 @@ export const users = pgTable('users', {
   avatar: text('avatar'),
   rating: doublePrecision('rating').default(5),
   createdAt: timestamp('created_at').defaultNow(),
+  
+  // Stripe payment fields
   stripeCustomerId: text('stripe_customer_id'),
   stripeConnectedAccountId: text('stripe_connected_account_id'),
+  defaultPaymentMethodId: text('default_payment_method_id'),
+  
+  // Stripe subscription fields
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  subscriptionStatus: subscriptionStatusEnum('subscription_status'),
+  subscriptionTier: text('subscription_tier'),
+  subscriptionStartDate: timestamp('subscription_start_date'),
+  subscriptionEndDate: timestamp('subscription_end_date'),
   
   // Location and availability fields for drivers
   isAvailable: boolean('is_available').default(false),
@@ -47,12 +59,7 @@ export const users = pgTable('users', {
   resetPasswordExpiry: timestamp('reset_password_expiry'),
 });
 
-// User relations
-export const usersRelations = relations(users, ({ many }) => ({
-  vehicles: many(vehicles),
-  ridesAsRider: many(rides, { relationName: "rider" }),
-  ridesAsDriver: many(rides, { relationName: "driver" }),
-}));
+// User relations will be declared after all table definitions
 
 // Vehicle model
 export const vehicles = pgTable('vehicles', {
@@ -183,6 +190,78 @@ export const insertRideSchema = createInsertSchema(rides).omit({
 });
 export const selectRideSchema = createSelectSchema(rides);
 
+// Payment method model for saved cards
+export const paymentMethods = pgTable('payment_methods', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  stripePaymentMethodId: text('stripe_payment_method_id').notNull().unique(),
+  type: text('type').notNull(), // 'card', 'bank_account', etc.
+  isDefault: boolean('is_default').default(false),
+  
+  // Card specific fields
+  brand: text('brand'), // 'visa', 'mastercard', etc.
+  last4: text('last4'),
+  expiryMonth: integer('expiry_month'),
+  expiryYear: integer('expiry_year'),
+  
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Payment method relations
+export const paymentMethodsRelations = relations(paymentMethods, ({ one }) => ({
+  user: one(users, {
+    fields: [paymentMethods.userId],
+    references: [users.id],
+  }),
+}));
+
+// Subscription model
+export const subscriptions = pgTable('subscriptions', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  stripeSubscriptionId: text('stripe_subscription_id').notNull().unique(),
+  status: subscriptionStatusEnum('status').notNull(),
+  tier: text('tier').notNull(),
+  currentPeriodStart: timestamp('current_period_start').notNull(),
+  currentPeriodEnd: timestamp('current_period_end').notNull(),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Subscription relations
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+// Create schemas for new entities
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export const selectPaymentMethodSchema = createSelectSchema(paymentMethods);
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export const selectSubscriptionSchema = createSelectSchema(subscriptions);
+
+// User relations defined after all table declarations
+export const usersRelations = relations(users, ({ many }) => ({
+  vehicles: many(vehicles),
+  ridesAsRider: many(rides, { relationName: "rider" }),
+  ridesAsDriver: many(rides, { relationName: "driver" }),
+  paymentMethods: many(paymentMethods),
+  subscriptions: many(subscriptions),
+}));
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -198,3 +277,9 @@ export type InsertRide = typeof rides.$inferInsert;
 
 export type Setting = typeof settings.$inferSelect;
 export type InsertSetting = typeof settings.$inferInsert;
+
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = typeof paymentMethods.$inferInsert;
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
