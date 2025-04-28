@@ -350,48 +350,112 @@ export function generateEnhancedRoute(
 ): Array<[number, number]> {
   console.log('generateEnhancedRoute called with:', { startLat, startLng, endLat, endLng, complexity });
   
-  // For our demo, we'll create a more direct route with just small variations
-  // to simulate a car moving along a realistic path
-  
-  // Number of points scales with distance
   const distance = calculateDistance(startLat, startLng, endLat, endLng);
-  const pointCount = Math.min(100, Math.max(20, Math.floor(distance * 2)));
+  console.log('Direct distance between points:', distance, 'km');
   
-  console.log('Route generation parameters:', { distance, pointCount });
+  // Build a more realistic route with street-level simulation
+  const route: Array<[number, number]> = [];
   
-  const result: Array<[number, number]> = [];
+  // Add the start point
+  route.push([startLat, startLng]);
   
-  // Always add the exact start point
-  result.push([startLat, startLng]);
+  // We'll generate a realistic path with multiple segments and turns
+  // 1. Find the general direction vector
+  const dirLat = endLat - startLat;
+  const dirLng = endLng - startLng;
   
-  // Create intermediate points
-  for (let i = 1; i < pointCount; i++) {
-    const ratio = i / pointCount;
+  // 2. Calculate the main grid approach - we'll use a grid pattern to simulate city blocks
+  // In most cities, streets follow a grid pattern at approximately 90-degree angles
+  
+  // Number of segments depends on distance and complexity
+  const segmentCount = Math.max(4, Math.min(20, Math.floor(distance * complexity)));
+  console.log('Creating route with', segmentCount, 'segments');
+  
+  // Create intermediate waypoints that follow a more realistic street pattern
+  let currentLat = startLat;
+  let currentLng = startLng;
+  let remainingLat = dirLat;
+  let remainingLng = dirLng;
+  
+  // Add some "character" to the route - major and minor roads
+  // Longer segments represent main roads, shorter segments represent turns and side streets
+  
+  for (let i = 0; i < segmentCount; i++) {
+    // Decide if we're going to move more in latitude or longitude direction
+    // This simulates moving along different streets in a grid
+    const moveLatitude = Math.random() < 0.5;
     
-    // Linear interpolation between start and end
-    let lat = startLat + (endLat - startLat) * ratio;
-    let lng = startLng + (endLng - startLng) * ratio;
+    // How much of the remaining distance to cover in this segment
+    // We use a non-linear distribution to make some segments longer (main roads)
+    const segmentRatio = Math.pow(Math.random(), 2) * 0.4 + 0.1; // Between 0.1 and 0.5
     
-    // Add very small random variation to make it look like a real route
-    // The variation should be very subtle
-    const seed = (lat * lng * 1000) + i;
-    const maxVariation = 0.0005 * Math.min(complexity / 10, 1); // Max ~50m with complexity 10
+    // Calculate the movement for this segment
+    let segmentLat = 0;
+    let segmentLng = 0;
     
-    // Use sine and cosine to create a slight curve pattern to the route
-    const latVariation = Math.sin(ratio * Math.PI) * maxVariation;
-    const lngVariation = Math.cos(ratio * Math.PI) * maxVariation;
+    if (moveLatitude) {
+      segmentLat = remainingLat * segmentRatio;
+      
+      // Add a slight movement in the other direction too (not completely straight roads)
+      // Smaller streets have more variation
+      const lateralVariation = Math.random() * 0.0002 * complexity * 
+                              (Math.random() < 0.5 ? 1 : -1);
+      segmentLng = lateralVariation;
+    } else {
+      segmentLng = remainingLng * segmentRatio;
+      
+      // Add a slight movement in the other direction too
+      const lateralVariation = Math.random() * 0.0002 * complexity * 
+                              (Math.random() < 0.5 ? 1 : -1);
+      segmentLat = lateralVariation;
+    }
     
-    // Apply the variation
-    lat += latVariation;
-    lng += lngVariation;
+    // Calculate the new position
+    currentLat += segmentLat;
+    currentLng += segmentLng;
     
-    result.push([lat, lng]);
+    // Generate points along this segment (simulate individual GPS pings)
+    const pointsInSegment = Math.max(3, Math.floor(
+      calculateDistance(currentLat - segmentLat, currentLng - segmentLng, currentLat, currentLng) * 20
+    ));
+    
+    for (let j = 1; j <= pointsInSegment; j++) {
+      const ratio = j / pointsInSegment;
+      const lat = (currentLat - segmentLat) + segmentLat * ratio;
+      const lng = (currentLng - segmentLng) + segmentLng * ratio;
+      
+      // Add very slight random noise to make the route look more natural
+      // Real GPS data isn't perfectly straight even on straight roads
+      const microVariation = 0.00001 * (Math.random() - 0.5);
+      route.push([lat + microVariation, lng + microVariation]);
+    }
+    
+    // Update the remaining distance
+    remainingLat -= segmentLat;
+    remainingLng -= segmentLng;
+  }
+  
+  // For the final approach, create a more direct path to the destination
+  // This simulates the last stretch to reach the exact destination
+  const finalSegment = Math.max(5, Math.floor(
+    calculateDistance(currentLat, currentLng, endLat, endLng) * 20
+  ));
+  
+  for (let i = 1; i <= finalSegment; i++) {
+    const ratio = i / finalSegment;
+    const lat = currentLat + (endLat - currentLat) * ratio;
+    const lng = currentLng + (endLng - currentLng) * ratio;
+    
+    // Add slight variation to the final approach
+    const microVariation = 0.00001 * (Math.random() - 0.5);
+    route.push([lat + microVariation, lng + microVariation]);
   }
   
   // Always add the exact end point
-  result.push([endLat, endLng]);
+  route.push([endLat, endLng]);
   
-  return result;
+  console.log('Generated realistic route with', route.length, 'points');
+  return route;
 }
 
 /**
