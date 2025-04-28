@@ -6,10 +6,9 @@
       "direction": "in",
       "name": "req",
       "methods": [
-        "get",
         "post"
       ],
-      "route": "match-drivers"
+      "route": "mobile/drivers/match"
     },
     {
       "type": "http",

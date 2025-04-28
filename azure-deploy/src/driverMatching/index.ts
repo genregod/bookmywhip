@@ -1,146 +1,223 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { Pool } from 'pg';
+
+// PostgreSQL connection
+let pool: Pool | null = null;
 
 /**
- * Distance calculation using Haversine formula
- * @param lat1 Latitude of first point
- * @param lon1 Longitude of first point
- * @param lat2 Latitude of second point
- * @param lon2 Longitude of second point
- * @returns Distance in kilometers
- */
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-/**
- * Creates a bounding box around a central point for efficient geo-queries
- * @param latitude Center latitude
- * @param longitude Center longitude
- * @param radiusKm Radius in kilometers
- * @returns Bounding box coordinates
- */
-function getBoundingBox(
-  latitude: number, 
-  longitude: number, 
-  radiusKm: number
-): { minLat: number; maxLat: number; minLon: number; maxLon: number } {
-  // Earth's radius in km
-  const R = 6371;
-
-  // Angular distance in radians
-  const radDist = radiusKm / R;
-  
-  // Current latitude in radians
-  const radLat = latitude * Math.PI / 180;
-  
-  // Current longitude in radians
-  const radLon = longitude * Math.PI / 180;
-  
-  // Min and max latitudes
-  const minLat = radLat - radDist;
-  const maxLat = radLat + radDist;
-  
-  // Calculate longitude bounds
-  // Compensate for degrees longitude getting smaller with increasing latitude
-  let deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
-  
-  let minLon = radLon - deltaLon;
-  let maxLon = radLon + deltaLon;
-  
-  // Convert back to degrees
-  return {
-    minLat: minLat * 180 / Math.PI,
-    maxLat: maxLat * 180 / Math.PI,
-    minLon: minLon * 180 / Math.PI,
-    maxLon: maxLon * 180 / Math.PI
-  };
-}
-
-interface Driver {
-  id: number;
-  name: string;
-  latitude: number;
-  longitude: number;
-  rating: number;
-  vehicleType: string;
-  isOnline: boolean;
-}
-
-// Mock database for demonstration purposes
-// In a real implementation, this would be replaced with a database connection
-const mockDrivers: Driver[] = [
-  { id: 1, name: "John Driver", latitude: 37.7749, longitude: -122.4194, rating: 4.8, vehicleType: "economy", isOnline: true },
-  { id: 2, name: "Sarah Driver", latitude: 37.7735, longitude: -122.4217, rating: 4.9, vehicleType: "premium", isOnline: true },
-  { id: 3, name: "Mike Driver", latitude: 37.7831, longitude: -122.4159, rating: 4.7, vehicleType: "economy", isOnline: true },
-  { id: 4, name: "Emily Driver", latitude: 37.7899, longitude: -122.4033, rating: 4.5, vehicleType: "premium", isOnline: true },
-  { id: 5, name: "Dave Driver", latitude: 37.7569, longitude: -122.4148, rating: 4.6, vehicleType: "economy", isOnline: false }
-];
-
-/**
- * Azure Function to find nearby drivers based on proximity
+ * Advanced driver matching Azure Function
+ * Performs proximity-based matching between riders and available drivers
  */
 const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
-  context.log('Driver Matching function processed a request.');
-    
-  const latitude = parseFloat(req.query.latitude || req.body?.latitude);
-  const longitude = parseFloat(req.query.longitude || req.body?.longitude);
-  const radiusKm = parseFloat(req.query.radius || req.body?.radius || "5");
-  const vehicleType = (req.query.vehicleType || req.body?.vehicleType || "economy").toLowerCase();
-  
-  if (isNaN(latitude) || isNaN(longitude)) {
-    context.res = {
-      status: 400,
-      body: { error: "Valid latitude and longitude are required." }
-    };
-    return;
-  }
+  context.log('Driver matching function processed a request.');
   
   try {
-    // Get the bounding box for efficient filtering
-    const boundingBox = getBoundingBox(latitude, longitude, radiusKm);
+    // Initialize database connection if needed
+    if (!pool) {
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+      });
+    }
     
-    // Filter drivers by bounding box, status, and vehicle type
-    const nearbyDrivers = mockDrivers
-      .filter(driver => 
-        driver.isOnline && 
-        driver.vehicleType === vehicleType &&
-        driver.latitude >= boundingBox.minLat &&
-        driver.latitude <= boundingBox.maxLat &&
-        driver.longitude >= boundingBox.minLon &&
-        driver.longitude <= boundingBox.maxLon
-      )
-      .map(driver => ({
-        ...driver,
-        distance: calculateDistance(latitude, longitude, driver.latitude, driver.longitude)
-      }))
-      .filter(driver => driver.distance <= radiusKm)
-      .sort((a, b) => a.distance - b.distance);
+    // Extract request parameters
+    const {
+      latitude,
+      longitude,
+      rideId,
+      vehicleType = 'economy',
+      maxDistance = 10, // km
+      maxDrivers = 3  
+    } = req.body;
     
-    context.res = {
-      status: 200,
-      body: {
-        pickupLocation: { latitude, longitude },
-        radius: radiusKm,
-        vehicleType,
-        driversFound: nearbyDrivers.length,
-        drivers: nearbyDrivers
-      }
-    };
+    // Validate required parameters
+    if (!latitude || !longitude) {
+      context.res = {
+        status: 400,
+        body: { error: "Missing required location parameters" }
+      };
+      return;
+    }
+    
+    // Find nearby available drivers
+    const drivers = await findNearbyDrivers(
+      parseFloat(latitude),
+      parseFloat(longitude),
+      vehicleType,
+      parseFloat(maxDistance),
+      parseInt(maxDrivers)
+    );
+    
+    if (drivers.length === 0) {
+      context.res = {
+        status: 200,
+        body: { 
+          message: "No available drivers found",
+          drivers: []
+        }
+      };
+      return;
+    }
+    
+    // If a specific ride ID is provided, automatically assign the closest driver
+    if (rideId) {
+      const closestDriver = drivers[0];
+      await assignDriverToRide(rideId, closestDriver.id);
+      
+      context.res = {
+        status: 200,
+        body: { 
+          message: "Driver assigned to ride",
+          rideId,
+          driverId: closestDriver.id,
+          driverName: closestDriver.name,
+          estimatedArrival: closestDriver.eta,
+          allDrivers: drivers
+        }
+      };
+    } else {
+      // Just return the list of nearby drivers
+      context.res = {
+        status: 200,
+        body: { 
+          drivers,
+          count: drivers.length
+        }
+      };
+    }
+    
   } catch (error) {
     context.log.error('Error in driver matching:', error);
     context.res = {
       status: 500,
-      body: { error: "Failed to match drivers.", details: error.message }
+      body: { error: "Failed to match drivers" }
     };
   }
 };
+
+/**
+ * Find nearby available drivers using PostgreSQL geospatial queries
+ */
+async function findNearbyDrivers(
+  latitude: number,
+  longitude: number,
+  vehicleType: string,
+  maxDistance: number,
+  limit: number
+): Promise<any[]> {
+  if (!pool) {
+    throw new Error('Database connection not initialized');
+  }
+  
+  const query = `
+    WITH available_drivers AS (
+      SELECT 
+        u.id, 
+        u.first_name || ' ' || u.last_name AS name,
+        l.latitude, 
+        l.longitude,
+        v.type AS vehicle_type,
+        v.id AS vehicle_id,
+        v.make || ' ' || v.model AS vehicle_name,
+        v.color AS vehicle_color,
+        v.license_plate,
+        (
+          6371 * acos(
+            cos(radians($1)) * cos(radians(l.latitude)) *
+            cos(radians(l.longitude) - radians($2)) +
+            sin(radians($1)) * sin(radians(l.latitude))
+          )
+        ) AS distance
+      FROM users u
+      JOIN locations l ON u.id = l.user_id
+      JOIN vehicles v ON u.id = v.driver_id
+      WHERE u.role = 'driver'
+      AND v.type = $3
+      AND l.updated_at > NOW() - INTERVAL '15 minutes'
+      AND NOT EXISTS (
+        SELECT 1 FROM rides r
+        WHERE r.driver_id = u.id
+        AND r.status IN ('accepted', 'in_progress')
+      )
+    )
+    SELECT 
+      id, 
+      name, 
+      latitude, 
+      longitude, 
+      vehicle_type,
+      vehicle_id,
+      vehicle_name,
+      vehicle_color,
+      license_plate,
+      distance,
+      ROUND(distance * 2) AS eta_minutes
+    FROM available_drivers
+    WHERE distance <= $4
+    ORDER BY distance
+    LIMIT $5
+  `;
+  
+  const result = await pool.query(query, [
+    latitude, 
+    longitude, 
+    vehicleType,
+    maxDistance,
+    limit
+  ]);
+  
+  return result.rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    location: {
+      latitude: row.latitude,
+      longitude: row.longitude
+    },
+    distance: {
+      km: parseFloat(row.distance.toFixed(2)),
+      miles: parseFloat((row.distance * 0.621371).toFixed(2))
+    },
+    eta: {
+      minutes: row.eta_minutes,
+      text: `${row.eta_minutes} min`
+    },
+    vehicle: {
+      id: row.vehicle_id,
+      type: row.vehicle_type,
+      name: row.vehicle_name,
+      color: row.vehicle_color,
+      licensePlate: row.license_plate
+    }
+  }));
+}
+
+/**
+ * Assign a driver to a ride
+ */
+async function assignDriverToRide(rideId: string, driverId: number): Promise<void> {
+  if (!pool) {
+    throw new Error('Database connection not initialized');
+  }
+  
+  // Get the first available vehicle for this driver
+  const vehicleResult = await pool.query(
+    'SELECT id FROM vehicles WHERE driver_id = $1 AND is_active = true LIMIT 1',
+    [driverId]
+  );
+  
+  if (vehicleResult.rows.length === 0) {
+    throw new Error('No active vehicle found for driver');
+  }
+  
+  const vehicleId = vehicleResult.rows[0].id;
+  
+  // Update the ride with the assigned driver and vehicle
+  await pool.query(
+    `UPDATE rides 
+     SET driver_id = $1, vehicle_id = $2, status = 'accepted', accept_time = NOW() 
+     WHERE id = $3 AND status = 'requested'`,
+    [driverId, vehicleId, rideId]
+  );
+}
 
 export default httpTrigger;
