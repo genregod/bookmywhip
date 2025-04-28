@@ -1,150 +1,124 @@
 # BookMyWhip Mobile App
 
-This is the React Native mobile application for BookMyWhip, a ride-hailing service that provides seamless transportation with personalized features like ride soundtracks.
-
-## Features
-
-- **User Authentication**: Secure login and registration
-- **Ride Booking**: Easy interface to book rides
-- **Real-time Tracking**: Track your ride in real-time
-- **Payment Integration**: Secure payment processing
-- **Ride History**: View past rides and details
-- **Audio Preferences**: Customize your ride soundtrack experience
-- **Personalized Soundtracks**: Generate custom playlists for each ride
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v14 or newer)
-- npm or yarn
-- React Native CLI
-- Android Studio for Android development
-- Xcode for iOS development
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/bookmywhip.git
-   cd bookmywhip/mobile/bookmywhip
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. For iOS, install CocoaPods dependencies:
-   ```bash
-   cd ios
-   pod install
-   cd ..
-   ```
-
-### Running the App
-
-#### Android
-
-```bash
-npm run android
-```
-
-#### iOS
-
-```bash
-npm run ios
-```
+BookMyWhip is a ride-hailing platform that connects riders with drivers through both web and mobile applications.
 
 ## Project Structure
 
 ```
-mobile/bookmywhip/
-├── src/
-│   ├── assets/         # Images, fonts, and other static assets
-│   ├── components/     # Reusable components
-│   ├── hooks/          # Custom React hooks
-│   ├── navigation/     # Navigation configuration
-│   ├── screens/        # Screen components
-│   │   ├── audio/      # Audio preference and soundtrack screens
-│   │   ├── auth/       # Authentication screens
-│   │   ├── home/       # Home and dashboard screens
-│   │   ├── profile/    # User profile screens
-│   │   └── rides/      # Ride booking and tracking screens
-│   ├── services/       # API services and other external services
-│   └── utils/          # Utility functions and helpers
-├── App.tsx             # Root component
-└── package.json        # Dependencies and scripts
+├── android/              # Android-specific code and configuration
+├── ios/                  # iOS-specific code and configuration
+└── src/                  # React Native application source code
+    ├── assets/           # Static assets like images and fonts
+    ├── components/       # Reusable UI components
+    ├── hooks/            # Custom React hooks
+    ├── navigation/       # Navigation configuration
+    ├── screens/          # UI screens
+    ├── services/         # API and backend services
+    ├── utils/            # Utility functions
+    └── App.tsx           # App entry point
 ```
 
-## API Integration
+## Prerequisites
 
-The mobile app integrates with the BookMyWhip backend API for all functionality. The API service configuration can be found in `src/services/api.ts`. Make sure to update the `BASE_URL` with your actual API URL.
+### For Android Development
+- Node.js 16 or newer
+- JDK 11 or newer
+- Android Studio
+- Android SDK with API level 31 or newer
 
-## Features Implementation
+### For iOS Development
+- Node.js 16 or newer
+- macOS with Xcode 13 or newer
+- CocoaPods
+- iOS 15.0+ device or simulator
+- Apple Developer account (for distribution)
 
-### Audio Preferences
+## Environment Setup
 
-Users can customize their audio preferences including:
-- Favorite music genres
-- Content rating (clean or explicit)
-- Default volume
-- Preferred moods
-- Personalization settings
+1. Create a `.env` file in the project root with your environment variables:
 
-### Ride Soundtrack
+```
+API_BASE_URL=https://your-bookmywhip-api.azurewebsites.net
+API_VERSION=v1
+AZURE_MAPS_SUBSCRIPTION_KEY=your_subscription_key_here
+STRIPE_PUBLISHABLE_KEY=your_publishable_key_here
+```
 
-For each ride, a personalized soundtrack is generated based on:
-- User's audio preferences
-- Ride duration and distance
-- Time of day
-- Location context
+## Building for Android
 
-### Real-time Tracking
+Follow the instructions in the [Android Build Guide](android-build-guide.md) for detailed steps to generate the APK and AAB files.
 
-The app provides real-time tracking of rides with:
-- Current location of the driver
-- Estimated time of arrival
-- Route visualization
-- Ride status updates
-
-### Payment Processing
-
-Secure payment processing with:
-- Multiple payment methods
-- Saved payment information
-- Fare estimates
-- Receipt generation
-
-## Building for Production
-
-### Android
+Quick instructions:
 
 ```bash
+# Install dependencies
+npm install
+
+# Generate release build
 cd android
-./gradlew bundleRelease
+./gradlew assembleRelease
 ```
 
-The release bundle will be generated at `android/app/build/outputs/bundle/release/app-release.aab`.
+The APK file will be generated at `android/app/build/outputs/apk/release/app-release.apk`
 
-### iOS
+## Building for iOS
 
-Build the app using Xcode by opening the `.xcworkspace` file in the `ios` directory and using the Archive option.
+Follow the instructions in the [iOS Build Guide](ios-build-guide.md) for detailed steps to generate the IPA file.
 
-## Contributing
+Quick instructions:
 
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add some amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+```bash
+# Install dependencies
+npm install
 
-## License
+# Install pods
+cd ios
+pod install
+cd ..
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+# Build using Xcode
+open ios/BookMyWhip.xcworkspace
+```
 
-## Contact
+Then in Xcode:
+1. Select "Product" > "Archive"
+2. Follow the distribution steps in the Organizer window
 
-Your Name - your.email@example.com
+## Running in Development
 
-Project Link: [https://github.com/yourusername/bookmywhip](https://github.com/yourusername/bookmywhip)
+```bash
+# Install dependencies
+npm install
+
+# Start the Metro bundler
+npm start
+
+# Run on Android
+npm run android
+
+# Run on iOS (macOS only)
+npm run ios
+```
+
+## Features
+
+- User authentication
+- Real-time ride tracking
+- Location services and mapping
+- Ride bookings
+- Payment processing
+- Custom ride soundtrack generation
+- Push notifications
+
+## Third-Party Services
+
+- Azure Maps for mapping and routes
+- Stripe for payment processing
+- Azure API Management for API integration
+- Socket.IO for real-time communication
+
+## Build for Distribution
+
+For distribution to app stores, follow the detailed guides:
+- [Android Play Store Guide](android-build-guide.md#distributing-your-apk)
+- [iOS App Store Guide](ios-build-guide.md#distributing-your-ipa)
