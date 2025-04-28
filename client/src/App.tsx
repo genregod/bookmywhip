@@ -21,6 +21,7 @@ import SocketDemo from "@/pages/socket-demo";
 import WazeDemoPage from "@/pages/waze-demo";
 import NavigationDemo from "@/pages/navigation-demo";
 import RoutePreviewDemo from "@/pages/route-preview-demo";
+import RouteAnimationTest from "@/pages/route-animation-test";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";

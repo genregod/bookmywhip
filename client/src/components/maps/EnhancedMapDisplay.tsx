@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Icon, LatLngExpression } from 'leaflet';
 import { Play, Pause, RotateCcw, Navigation, Clock, Route } from 'lucide-react';
-import AnimatedRoutePreview from './AnimatedRoutePreview';
+import AnimatedRoutePreview, { AnimatedRoutePreviewRef } from './AnimatedRoutePreview';
 import { calculateDistance, estimateTravelTime, formatDistance, formatDuration } from '@/lib/mapUtils';
 import { navigateRouteWithWaze } from '@/lib/wazeIntegration';
 
@@ -104,6 +104,7 @@ export default function EnhancedMapDisplay({
   onAnimationComplete
 }: EnhancedMapDisplayProps) {
   const mapRef = useRef(null);
+  const routeAnimationRef = useRef<AnimatedRoutePreviewRef>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationComplete, setAnimationComplete] = useState(false);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
@@ -213,6 +214,7 @@ export default function EnhancedMapDisplay({
         {/* Animated route preview */}
         {route && (
           <AnimatedRoutePreview
+            ref={routeAnimationRef}
             startPoint={route.start}
             endPoint={route.end}
             startLabel={route.startLabel || 'Start'}
@@ -259,12 +261,12 @@ export default function EnhancedMapDisplay({
             <Button
               size="sm"
               onClick={() => {
-                const animatedRoute = document.querySelector('.leaflet-animated-route');
-                if (animatedRoute) {
-                  (animatedRoute as any).startAnimation();
+                console.log('Play button clicked, invoking startAnimation');
+                if (routeAnimationRef.current) {
+                  routeAnimationRef.current.startAnimation();
                 } else {
-                  // If the component doesn't expose a direct method, we can trigger a re-render
-                  // that will start the animation due to autoStart being true
+                  console.log('routeAnimationRef.current is null');
+                  // Fallback to auto-start
                   setAnimationComplete(false);
                 }
               }}
@@ -280,9 +282,11 @@ export default function EnhancedMapDisplay({
               size="sm"
               variant="outline"
               onClick={() => {
-                const animatedRoute = document.querySelector('.leaflet-animated-route');
-                if (animatedRoute) {
-                  (animatedRoute as any).pauseAnimation();
+                console.log('Pause button clicked, invoking pauseAnimation');
+                if (routeAnimationRef.current) {
+                  routeAnimationRef.current.pauseAnimation();
+                } else {
+                  console.log('routeAnimationRef.current is null');
                 }
               }}
               className="border-primary text-primary hover:bg-primary/10"
@@ -297,11 +301,17 @@ export default function EnhancedMapDisplay({
               size="sm"
               variant="outline"
               onClick={() => {
-                setAnimationComplete(false);
-                const animatedRoute = document.querySelector('.leaflet-animated-route');
-                if (animatedRoute) {
-                  (animatedRoute as any).resetAnimation();
-                  (animatedRoute as any).startAnimation();
+                console.log('Replay button clicked, invoking resetAnimation + startAnimation');
+                if (routeAnimationRef.current) {
+                  routeAnimationRef.current.resetAnimation();
+                  setTimeout(() => {
+                    if (routeAnimationRef.current) {
+                      routeAnimationRef.current.startAnimation();
+                    }
+                  }, 50);
+                } else {
+                  console.log('routeAnimationRef.current is null');
+                  setAnimationComplete(false);
                 }
               }}
               className="border-primary text-primary hover:bg-primary/10"
