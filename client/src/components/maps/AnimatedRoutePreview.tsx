@@ -106,6 +106,8 @@ export default function AnimatedRoutePreview({
 
   // Generate route on component mount or when points change
   useEffect(() => {
+    console.log('Route effect running', { startPoint, endPoint, routeComplexity });
+    
     // Generate a realistic route
     const newRoute = generateEnhancedRoute(
       startPoint[0], startPoint[1],
@@ -113,6 +115,7 @@ export default function AnimatedRoutePreview({
       routeComplexity
     );
     
+    console.log('Generated new route with length:', newRoute.length);
     setRoute(newRoute);
     
     // Reset animation state
@@ -122,6 +125,7 @@ export default function AnimatedRoutePreview({
     
     // Generate animation steps
     const newAnimationSteps = generateRouteAnimationSteps(newRoute, 60);
+    console.log('Generated animation steps:', newAnimationSteps.length);
     setAnimationSteps(newAnimationSteps);
     
     // Fit map to route bounds if enabled
@@ -133,12 +137,15 @@ export default function AnimatedRoutePreview({
       ] as [[number, number], [number, number]]);
     }
     
+    console.log('Auto-start is set to:', autoStart);
     // Auto-start animation if enabled
     if (autoStart) {
       // Small delay to ensure map is ready
+      console.log('Setting timeout to start animation');
       setTimeout(() => {
+        console.log('Timeout fired, calling startAnimation');
         startAnimation();
-      }, 300);
+      }, 1000);
     }
     
     // Cleanup animation on unmount
@@ -151,7 +158,17 @@ export default function AnimatedRoutePreview({
 
   // Start the route animation
   const startAnimation = () => {
-    if (isAnimating || animationComplete || animationSteps.length === 0) return;
+    console.log('startAnimation called', { 
+      isAnimating, 
+      animationComplete, 
+      stepsLength: animationSteps.length,
+      routeLength: route.length
+    });
+    
+    if (isAnimating || animationComplete || animationSteps.length === 0) {
+      console.log('Animation not starting due to conditions');
+      return;
+    }
     
     setIsAnimating(true);
     setAnimationComplete(false);
@@ -161,6 +178,7 @@ export default function AnimatedRoutePreview({
       onAnimationStart();
     }
     
+    console.log('Starting animation now');
     startTimeRef.current = Date.now();
     animateRoute();
   };
