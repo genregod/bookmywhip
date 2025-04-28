@@ -1,5 +1,14 @@
 import { ApiManagementClient } from '@azure/arm-apimanagement';
 import { DefaultAzureCredential } from '@azure/identity';
+import { 
+  AZURE_SUBSCRIPTION_ID,
+  AZURE_RESOURCE_GROUP,
+  AZURE_APIM_NAME,
+  AZURE_TENANT_ID,
+  AZURE_CLIENT_ID,
+  AZURE_CLIENT_SECRET,
+  logEnvironmentStatus
+} from '../env';
 
 // Type declarations to fix missing types 
 interface ApiCreateOrUpdateParameter {
@@ -46,9 +55,9 @@ export class AzureApiManagementService {
 
   constructor() {
     // Get configuration from environment variables
-    this.subscriptionId = process.env.AZURE_SUBSCRIPTION_ID || '';
-    this.resourceGroupName = process.env.AZURE_RESOURCE_GROUP || '';
-    this.serviceName = process.env.AZURE_APIM_NAME || '';
+    this.subscriptionId = AZURE_SUBSCRIPTION_ID;
+    this.resourceGroupName = AZURE_RESOURCE_GROUP;
+    this.serviceName = AZURE_APIM_NAME;
 
     // Validate required environment variables
     const missingVars = [];
@@ -60,6 +69,9 @@ export class AzureApiManagementService {
       console.warn(`Missing Azure API Management environment variables: ${missingVars.join(', ')}`);
       console.warn('Azure API Management integration will be unavailable.');
     }
+    
+    // Log overall environment status
+    logEnvironmentStatus();
   }
 
   /**
@@ -74,10 +86,24 @@ export class AzureApiManagementService {
       return;
     }
 
+    // Check if we have the required Azure client credentials
+    const missingCredentials = [];
+    if (!AZURE_TENANT_ID) missingCredentials.push('AZURE_TENANT_ID');
+    if (!AZURE_CLIENT_ID) missingCredentials.push('AZURE_CLIENT_ID');
+    if (!AZURE_CLIENT_SECRET) missingCredentials.push('AZURE_CLIENT_SECRET');
+
+    if (missingCredentials.length > 0) {
+      console.warn(`Cannot initialize Azure API Management client due to missing credentials: ${missingCredentials.join(', ')}`);
+      return;
+    }
+
     try {
-      // Use DefaultAzureCredential for authentication
-      // This will try multiple authentication methods automatically
-      const credential = new DefaultAzureCredential();
+      // Use DefaultAzureCredential for authentication with explicit client credentials
+      const credential = new DefaultAzureCredential({
+        tenantId: AZURE_TENANT_ID,
+        clientId: AZURE_CLIENT_ID,
+        clientSecret: AZURE_CLIENT_SECRET
+      });
       
       this.client = new ApiManagementClient(credential, this.subscriptionId);
       this.isInitialized = true;

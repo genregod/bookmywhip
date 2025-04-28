@@ -1,6 +1,5 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { Server as SocketIOServer } from 'socket.io';
 import { storage } from "./storage";
 import path from "path";
 import { insertUserSchema, insertRideSchema, insertVehicleSchema, insertLocationSchema } from "@shared/schema";
@@ -12,22 +11,26 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { verifyPassword } from "./auth";
 import * as azureApiManagementController from './routes/azureApiManagement';
+import { webSocketService } from './services/webSocketService';
+import { 
+  STRIPE_SECRET_KEY,
+  logEnvironmentStatus
+} from './env';
 
 const SessionStore = MemoryStore(session);
 
 // Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
+if (!STRIPE_SECRET_KEY) {
   console.warn('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" as any })
+const stripe = STRIPE_SECRET_KEY 
+  ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-03-31.basil" as any })
   : null;
 
-// Store active Socket.IO connections
-const clients = new Map<number, string>();
-
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Log environment status
+  logEnvironmentStatus();
   // Audio preferences routes
   app.get('/api/users/:id/audio-preferences', async (req: Request, res: Response) => {
     try {
@@ -1014,235 +1017,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up HTTP server
   const httpServer = createServer(app);
   
-  // Set up WebSocket server
-  // Create Socket.IO server with CORS options for better WebSocket support
-  const io = new SocketIOServer(httpServer, {
-    path: '/ws',
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    },
-    pingInterval: 10000, // Send a ping packet every 10 seconds
-    pingTimeout: 5000    // Consider connection closed if no pong after 5 seconds
-  });
+  // Initialize the WebSocket service
+  webSocketService.initialize(httpServer);
   
-  console.log('Socket.IO server initialized at /ws');
-  
-  // Create namespaces for different user types
-  const riderNamespace = io.of('/riders');
-  const driverNamespace = io.of('/drivers');
-  const adminNamespace = io.of('/admin');
-  
-  // Set up rider namespace
-  riderNamespace.on('connection', (socket) => {
-    console.log('Rider client connected:', socket.id);
-    let userId: number | null = null;
+  // WebSocket API routes for administration
+  app.get('/api/websocket/status', (req: Request, res: Response) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can access WebSocket status' });
+    }
     
-    // Send welcome message
-    socket.emit('connect_success', {
-      message: 'Connected to BookMyWhip rider service'
-    });
-    
-    // Handle authentication
-    socket.on('auth', (data) => {
-      try {
-        if (data && data.userId) {
-          userId = parseInt(data.userId);
-          clients.set(userId, socket.id);
-          console.log(`Rider ${userId} authenticated with socket ID ${socket.id}`);
-          
-          // Join a user-specific room for targeted messages
-          socket.join(`user:${userId}`);
-          
-          // Acknowledge authentication
-          socket.emit('auth_success', { userId });
-        }
-      } catch (error) {
-        console.error('Error handling rider authentication:', error);
-        socket.emit('error', { message: 'Authentication failed' });
-      }
-    });
-    
-    // Handle ride requests
-    socket.on('request_ride', async (data) => {
-      try {
-        if (!userId) {
-          return socket.emit('error', { message: 'Not authenticated' });
-        }
-        
-        console.log(`Ride requested by rider ${userId}:`, data);
-        
-        // Broadcast to nearby drivers in the driver namespace
-        driverNamespace.emit('new_ride_request', {
-          ...data,
-          riderId: userId,
-          timestamp: new Date().toISOString()
-        });
-        
-        socket.emit('ride_requested', {
-          success: true,
-          message: 'Ride request sent to nearby drivers'
-        });
-      } catch (error) {
-        console.error('Error handling ride request:', error);
-        socket.emit('error', { message: 'Failed to process ride request' });
-      }
-    });
-    
-    // Handle disconnection
-    socket.on('disconnect', () => {
-      console.log('Rider client disconnected:', socket.id);
-      
-      // Remove from clients map if authenticated
-      if (userId) {
-        clients.delete(userId);
-        console.log(`Rider ${userId} removed from Socket.IO clients`);
-      }
+    res.json({
+      status: 'running',
+      timestamp: new Date().toISOString()
     });
   });
   
-  // Set up driver namespace
-  driverNamespace.on('connection', (socket) => {
-    console.log('Driver client connected:', socket.id);
-    let userId: number | null = null;
-    
-    // Send welcome message
-    socket.emit('connect_success', {
-      message: 'Connected to BookMyWhip driver service'
-    });
-    
-    // Handle authentication
-    socket.on('auth', (data) => {
-      try {
-        if (data && data.userId) {
-          userId = parseInt(data.userId);
-          clients.set(userId, socket.id);
-          console.log(`Driver ${userId} authenticated with socket ID ${socket.id}`);
-          
-          // Join a user-specific room for targeted messages
-          socket.join(`user:${userId}`);
-          
-          // Acknowledge authentication
-          socket.emit('auth_success', { userId });
-        }
-      } catch (error) {
-        console.error('Error handling driver authentication:', error);
-        socket.emit('error', { message: 'Authentication failed' });
+  // API route to send a notification to a specific user
+  app.post('/api/notifications/user/:userId', async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Authentication required' });
       }
-    });
-    
-    // Handle driver location updates
-    socket.on('driver_location_update', async (data) => {
-      try {
-        if (!userId) {
-          return socket.emit('error', { message: 'Not authenticated' });
-        }
-        
-        console.log(`Driver ${userId} location updated:`, data.latitude, data.longitude);
-        
-        // Store location in database (could be optimized with batch inserts)
-        await storage.createLocation({
-          userId,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          accuracy: data.accuracy || null,
-          timestamp: new Date().toISOString()
-        });
-        
-        // Find active rides with this driver
-        const activeRide = await storage.getActiveRideByDriverId(userId);
-        
-        // If driver has an active ride, notify the rider
-        if (activeRide && activeRide.riderId) {
-          // Emit to the specific rider's room
-          riderNamespace.to(`user:${activeRide.riderId}`).emit('driver_location_update', {
-            rideId: activeRide.id,
-            driverId: userId,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error('Error handling driver location update:', error);
-      }
-    });
-    
-    // Handle driver status changes (available/busy/offline)
-    socket.on('driver_status_change', async (data) => {
-      try {
-        if (!userId) {
-          return socket.emit('error', { message: 'Not authenticated' });
-        }
-        
-        console.log(`Driver ${userId} status changed to ${data.status}`);
-        
-        // Update driver status in database
-        await storage.updateUser(userId, { status: data.status });
-        
-        // Acknowledge status change
-        socket.emit('status_updated', { status: data.status });
-      } catch (error) {
-        console.error('Error handling driver status change:', error);
-        socket.emit('error', { message: 'Failed to update status' });
-      }
-    });
-    
-    // Handle disconnection
-    socket.on('disconnect', () => {
-      console.log('Driver client disconnected:', socket.id);
       
-      // Remove from clients map if authenticated
-      if (userId) {
-        clients.delete(userId);
-        console.log(`Driver ${userId} removed from Socket.IO clients`);
+      const currentUser = req.user as any;
+      const userId = parseInt(req.params.userId, 10);
+      const { event, data } = req.body;
+      
+      if (!event) {
+        return res.status(400).json({ message: 'Event name is required' });
       }
-    });
+      
+      // Only admins can send notifications to other users
+      if (currentUser.id !== userId && currentUser.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      // Send notification through WebSocket service
+      webSocketService.notifyUser(userId, event, data || {});
+      
+      res.json({ success: true, message: `Notification sent to user ${userId}` });
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      res.status(500).json({ message: 'Failed to send notification' });
+    }
   });
   
-  // Set up admin namespace with more restricted access
-  adminNamespace.on('connection', (socket) => {
-    console.log('Admin client connected:', socket.id);
-    let userId: number | null = null;
-    
-    // Send welcome message
-    socket.emit('connect_success', {
-      message: 'Connected to BookMyWhip admin service'
-    });
-    
-    // Handle authentication with additional role check
-    socket.on('auth', async (data) => {
-      try {
-        if (data && data.userId) {
-          // Verify admin role
-          const user = await storage.getUser(parseInt(data.userId));
-          
-          if (!user || user.role !== 'admin') {
-            socket.emit('error', { message: 'Unauthorized: Admin access required' });
-            return;
-          }
-          
-          userId = user.id;
-          clients.set(userId, socket.id);
-          console.log(`Admin ${userId} authenticated with socket ID ${socket.id}`);
-          
-          // Acknowledge authentication
-          socket.emit('auth_success', { userId });
-        }
-      } catch (error) {
-        console.error('Error handling admin authentication:', error);
-        socket.emit('error', { message: 'Authentication failed' });
+  // API route to broadcast ride status updates
+  app.post('/api/notifications/ride/:rideId', async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Authentication required' });
       }
-    });
-    
-    // Handle disconnection
-    socket.on('disconnect', () => {
-      console.log('Admin client disconnected:', socket.id);
       
-      if (userId) {
-        clients.delete(userId);
+      const currentUser = req.user as any;
+      const rideId = parseInt(req.params.rideId, 10);
+      const { event, data } = req.body;
+      
+      if (!event) {
+        return res.status(400).json({ message: 'Event name is required' });
       }
-    });
+      
+      // Get the ride to verify the user has access
+      const ride = await storage.getRide(rideId);
+      
+      if (!ride) {
+        return res.status(404).json({ message: 'Ride not found' });
+      }
+      
+      // Only the rider, driver, or admin can send notifications for a ride
+      if (currentUser.id !== ride.riderId && 
+          currentUser.id !== ride.driverId && 
+          currentUser.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      // Send notification to all ride participants
+      webSocketService.notifyRide(rideId, event, data || {});
+      
+      res.json({ success: true, message: `Notification sent to ride ${rideId}` });
+    } catch (error) {
+      console.error('Error sending ride notification:', error);
+      res.status(500).json({ message: 'Failed to send notification' });
+    }
   });
 
   return httpServer;

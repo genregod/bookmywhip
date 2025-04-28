@@ -148,7 +148,7 @@ export default function AuthPage() {
                   onClick={() => setUserType('rider')}
                 >
                   <PersonStanding className="h-8 w-8 mb-2" />
-                  <span>I need a ride</span>
+                  <span>Rider</span>
                 </Button>
                 <Button 
                   variant={userType === 'driver' ? 'default' : 'outline'} 
@@ -156,7 +156,7 @@ export default function AuthPage() {
                   onClick={() => setUserType('driver')}
                 >
                   <Car className="h-8 w-8 mb-2" />
-                  <span>I have a whip</span>
+                  <span>Driver</span>
                 </Button>
               </div>
             </div>
