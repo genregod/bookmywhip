@@ -1,0 +1,419 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "BookMyWhip Mobile API",
+    "description": "API for BookMyWhip mobile applications (iOS and Android)",
+    "version": "1.0.0",
+    "contact": {
+      "email": "admin@bookmywhip.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://bookmywhipapimanagement.azure-api.net/mobile"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User authentication operations"
+    },
+    {
+      "name": "Rides",
+      "description": "Ride booking and management"
+    },
+    {
+      "name": "Drivers",
+      "description": "Driver-specific operations"
+    },
+    {
+      "name": "Riders",
+      "description": "Rider-specific operations"
+    },
+    {
+      "name": "Payments",
+      "description": "Payment processing"
+    },
+    {
+      "name": "RealTime",
+      "description": "Real-time communication"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User login",
+        "description": "Authenticate a user and get session token",
+        "operationId": "login",
+        "requestBody": {
+          "description": "User credentials",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register new user",
+        "operationId": "register",
+        "requestBody": {
+          "description": "User registration data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data"
+          },
+          "409": {
+            "description": "User already exists"
+          }
+        }
+      }
+    },
+    "/rides": {
+      "get": {
+        "tags": ["Rides"],
+        "summary": "Get user rides",
+        "operationId": "getUserRides",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by ride status",
+            "schema": {
+              "type": "string",
+              "enum": ["requested", "accepted", "in_progress", "completed", "cancelled"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of rides to return",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of rides to skip",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of rides",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Ride"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Rides"],
+        "summary": "Request a new ride",
+        "operationId": "requestRide",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Ride request details",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ride requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ride"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/realtime/negotiate": {
+      "post": {
+        "tags": ["RealTime"],
+        "summary": "Negotiate WebSocket/SignalR connection",
+        "operationId": "negotiateRealtime",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connection info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "accessToken": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          }
+        },
+        "required": ["username", "password"]
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["rider", "driver"]
+          }
+        },
+        "required": ["username", "password", "role"]
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          }
+        }
+      },
+      "RideRequest": {
+        "type": "object",
+        "properties": {
+          "pickupLatitude": {
+            "type": "number"
+          },
+          "pickupLongitude": {
+            "type": "number"
+          },
+          "pickupAddress": {
+            "type": "string"
+          },
+          "destinationLatitude": {
+            "type": "number"
+          },
+          "destinationLongitude": {
+            "type": "number"
+          },
+          "destinationAddress": {
+            "type": "string"
+          },
+          "estimatedDistance": {
+            "type": "number"
+          },
+          "estimatedDuration": {
+            "type": "number"
+          },
+          "vehicleType": {
+            "type": "string",
+            "enum": ["economy", "premium"]
+          }
+        },
+        "required": [
+          "pickupLatitude",
+          "pickupLongitude",
+          "pickupAddress",
+          "destinationLatitude",
+          "destinationLongitude",
+          "destinationAddress",
+          "vehicleType"
+        ]
+      },
+      "Ride": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "riderId": {
+            "type": "integer"
+          },
+          "driverId": {
+            "type": "integer"
+          },
+          "vehicleId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["requested", "accepted", "in_progress", "completed", "cancelled"]
+          },
+          "vehicleType": {
+            "type": "string",
+            "enum": ["economy", "premium"]
+          },
+          "pickupLatitude": {
+            "type": "number"
+          },
+          "pickupLongitude": {
+            "type": "number"
+          },
+          "pickupAddress": {
+            "type": "string"
+          },
+          "destinationLatitude": {
+            "type": "number"
+          },
+          "destinationLongitude": {
+            "type": "number"
+          },
+          "destinationAddress": {
+            "type": "string"
+          },
+          "requestTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estimatedFare": {
+            "type": "number"
+          },
+          "actualFare": {
+            "type": "number"
+          },
+          "estimatedDistance": {
+            "type": "number"
+          },
+          "estimatedDuration": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
