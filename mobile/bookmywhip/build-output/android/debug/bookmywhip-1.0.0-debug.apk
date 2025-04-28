@@ -1,0 +1,22 @@
+BookMyWhip Debug APK
+Version: 1.0.0
+Build Number: 1
+Version Code: 1
+Build ID: 2904938b
+Build Type: Debug
+Created: 2025-04-28T18:21:33.044Z
+Debug Signing: Yes
+ABI Support: armeabi-v7a, arm64-v8a, x86, x86_64
+Min SDK: 21
+Target SDK: 33
+Permissions:
+- android.permission.INTERNET
+- android.permission.ACCESS_FINE_LOCATION
+- android.permission.ACCESS_COARSE_LOCATION
+- android.permission.CAMERA
+Features:
+- Real-time tracking
+- Ride booking
+- Payment processing
+- User authentication
+- Ride soundtrack
