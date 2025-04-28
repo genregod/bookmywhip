@@ -93,6 +93,12 @@ export default function DemoPage() {
               Azure Maps Demo
             </Link>
           </Button>
+          
+          <Button variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800" asChild>
+            <Link href="/real-time-tracking-demo">
+              Real-Time GPS Tracking
+            </Link>
+          </Button>
         </div>
         
         <Tabs defaultValue="progress">

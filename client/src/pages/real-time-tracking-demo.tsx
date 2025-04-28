@@ -62,7 +62,6 @@ export default function RealTimeTrackingDemo() {
             toast({
               title: "Destination Reached",
               description: "The rider has arrived at their destination.",
-              variant: "success",
             });
           }
           
@@ -97,7 +96,7 @@ export default function RealTimeTrackingDemo() {
     toast({
       title: "Driver Paused",
       description: "The driver has momentarily stopped.",
-      variant: "warning",
+      variant: "destructive",
     });
   };
   
@@ -212,7 +211,7 @@ export default function RealTimeTrackingDemo() {
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Status:</span>
                   <Badge variant={
-                    riderStatus === 'arrived' ? 'success' : 
+                    riderStatus === 'arrived' ? 'secondary' : 
                     riderStatus === 'picked_up' ? 'default' : 
                     'outline'
                   }>
