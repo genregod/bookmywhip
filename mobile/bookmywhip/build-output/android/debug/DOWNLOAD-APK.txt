@@ -1,0 +1,4 @@
+Download the APK directly from:
+https://builds.bookmywhip.com/android/debug/bookmywhip-1.0.0-debug.apk
+
+Or scan the QR code in QR-CODE.png

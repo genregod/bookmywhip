@@ -1,0 +1,25 @@
+
+╔═══════════════════════╗
+║ ██████████  █ ███████ ║
+║ █        █  █ █     █ ║
+║ █ ██████ █    █ ███ █ ║
+║ █ ██████ █ ██ █ ███ █ ║
+║ █ ██████ █  █ █     █ ║
+║ ████████████ ███████ ║
+║                       ║
+║   BookMyWhip Debug    ║
+║   APK Download QR     ║
+║                       ║
+║ ███ █ █ █  █████████ ║
+║ █ █ █ █████  █  █ ██ ║
+║ █  ██   █ █ ████  █  ║
+║  █  █ █ █  █ █ █████ ║
+║ █  █ █ █ █████ ██  █ ║
+║ ████████████ ███████ ║
+╚═══════════════════════╝
+
+Scan this QR code to download:
+https://builds.bookmywhip.com/android/debug/bookmywhip-1.0.0-debug.apk
+
+(Note: This is a mock representation. In a real environment, 
+this would be an actual QR code image file.)
