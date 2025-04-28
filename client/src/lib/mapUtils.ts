@@ -350,7 +350,7 @@ export async function fetchRouteFromAzureMaps(
   try {
     // Construct the API URL with the appropriate parameters
     // Use routeRepresentation=polyline to get the detailed route path
-    const apiUrl = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&query=${startLat},${startLng}:${endLat},${endLng}&routeRepresentation=polyline&subscription-key=${process.env.AZURE_MAPS_SUBSCRIPTION_KEY}`;
+    const apiUrl = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&query=${startLat},${startLng}:${endLat},${endLng}&routeRepresentation=polyline&subscription-key=${import.meta.env.VITE_AZURE_MAPS_SUBSCRIPTION_KEY}`;
     
     const response = await fetch(apiUrl);
     

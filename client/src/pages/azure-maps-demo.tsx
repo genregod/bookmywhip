@@ -6,7 +6,7 @@ import { Map as LeafletMap, LatLngExpression, Icon } from 'leaflet';
 import { Play, Pause, RotateCcw, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
-import { generateEnhancedRoute } from '@/lib/mapUtils';
+import { fetchRouteFromAzureMaps } from '@/lib/mapUtils';
 
 // Import Leaflet marker icons
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -67,11 +67,10 @@ export default function AzureMapsDemo() {
         description: 'Requesting route data from Azure Maps API...',
       });
       
-      // Use the asynchronous route generation function
-      const newRoute = await generateEnhancedRoute(
+      // Try to fetch route directly from Azure Maps API
+      const newRoute = await fetchRouteFromAzureMaps(
         startPoint[0], startPoint[1],
-        endPoint[0], endPoint[1],
-        5 // complexity
+        endPoint[0], endPoint[1]
       );
       
       setRoutePoints(newRoute);

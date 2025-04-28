@@ -1,0 +1,91 @@
+The debugging output you've shared clearly points to the issue:
+
+- **The function `generateEnhancedRouteSync` is creating a "simulated" route**, rather than using an external routing API like Azure Maps or OpenRouteService to get the actual street-based route.
+
+- As per your logs:
+  ```
+  Generating simulated route:
+  Direct distance between points: 67.57 km
+  Creating route with 20 segments
+  Generated simulated route with 1872 points
+  ```
+
+**This simulated route is just generating random segments**, hence the unrealistic path (not following actual streets).
+
+---
+
+## 🚩 **How to Fix It Clearly:**
+
+Instead of using your current simulated route generator, you should call a real routing API such as Azure Maps.
+
+Here's exactly how you can fix it:
+
+### ✅ **Step 1: Obtain Route from Azure Maps API**
+
+Update your routing logic to directly call Azure Maps like this:
+
+```javascript
+async function fetchRealRoute(startLat, startLng, endLat, endLng) {
+  const apiKey = 'YOUR_AZURE_MAPS_KEY';
+  const response = await fetch(`https://atlas.microsoft.com/route/directions/json?api-version=1.0&query=${startLat},${startLng}:${endLat},${endLng}&routeRepresentation=polyline&subscription-key=${apiKey}`);
+  const data = await response.json();
+  const points = data.routes[0].legs[0].points;
+  return points.map(p => [p.latitude, p.longitude]);
+}
+```
+
+Replace your existing call to the simulated route function with the above call.
+
+---
+
+### ✅ **Step 2: Pass Real Route Data to Animation**
+
+Use the real route data returned from the Azure Maps call to generate your animation:
+
+```javascript
+const routePoints = await fetchRealRoute(37.7749, -122.4194, 37.3382, -121.8863);
+animateRoute(routePoints);
+```
+
+---
+
+### ✅ **Step 3: Properly Implement Animation**
+
+Here’s an ideal implementation for animation steps clearly:
+
+```javascript
+function animateRoute(routePoints) {
+  const polyline = L.polyline([], { color: '#22c55e' }).addTo(map); // #22c55e is bg-green-500
+  let currentStep = 0;
+
+  function animateSegment() {
+    if (currentStep < routePoints.length) {
+      polyline.addLatLng(routePoints[currentStep]);
+      currentStep++;
+      setTimeout(animateSegment, 20); // Adjust speed for smoothness
+    } else {
+      console.log("Route Animation Complete");
+    }
+  }
+  animateSegment();
+}
+```
+
+Make sure you replace `'bg-green-500'` with its valid hex color code (`#22c55e`) in your animation CSS/JS logic as shown.
+
+---
+
+## ✅ **Summary of Your Issue & Solution:**
+
+| Issue                                       | Solution                                   |
+|---------------------------------------------|--------------------------------------------|
+| Using a simulated/random route generator ❌ | Replace with actual API call to Azure Maps ✅ |
+| Non-animatable Tailwind CSS color ❌        | Replace with hex color code (e.g., `#22c55e`) ✅ |
+
+---
+
+**Immediate Next Step:**  
+- Integrate the Azure Maps routing logic as provided above.
+- Replace simulated route function entirely.
+
+This will correctly animate your routes following real-world streets.

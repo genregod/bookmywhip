@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useMap, Polyline, Marker } from 'react-leaflet';
 import { LatLngBounds, LatLngExpression, Icon, DivIcon } from 'leaflet';
-import { generateEnhancedRouteSync, calculateCameraPath, generateRouteAnimationSteps, getRouteBounds } from '@/lib/mapUtils';
+import { 
+  generateEnhancedRouteSync, 
+  calculateCameraPath, 
+  generateRouteAnimationSteps, 
+  getRouteBounds,
+  fetchRouteFromAzureMaps
+} from '@/lib/mapUtils';
 import { MapPin, Navigation } from 'lucide-react';
 
 // Fix for default marker icons in Leaflet with React

@@ -87,35 +87,109 @@ const drawRoute = (map: atlas.Map, route: MapRoute): atlas.layer.LineLayer => {
   return lineLayer;
 };
 
-// Calculate a route between two points
+// Calculate a route between two points using Azure Maps Routing API
 const calculateRoute = async (
   map: atlas.Map, 
   startPosition: atlas.data.Position, 
   endPosition: atlas.data.Position
 ): Promise<MapRoute> => {
-  // This would ideally use Azure Maps Route API, but for the demo we'll return a simple route
-  // Interpolate points between start and end
-  const points = [
-    startPosition,
-    // Add some "waypoints" to make the route look more realistic
-    [
-      startPosition[0] + (endPosition[0] - startPosition[0]) * 0.25,
-      startPosition[1] + (endPosition[1] - startPosition[1]) * 0.3
-    ],
-    [
-      startPosition[0] + (endPosition[0] - startPosition[0]) * 0.5,
-      startPosition[1] + (endPosition[1] - startPosition[1]) * 0.6
-    ],
-    [
-      startPosition[0] + (endPosition[0] - startPosition[0]) * 0.75,
-      startPosition[1] + (endPosition[1] - startPosition[1]) * 0.7
-    ],
-    endPosition
-  ];
+  try {
+    // Format the route request URL for Azure Maps
+    const routeURL = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=${
+      import.meta.env.VITE_AZURE_MAPS_SUBSCRIPTION_KEY
+    }&query=${startPosition[1]},${startPosition[0]}:${endPosition[1]},${endPosition[0]}&routeRepresentation=polyline&instructionsType=text&travelMode=car`;
 
-  return {
-    points: points as atlas.data.Position[]
-  };
+    console.log('Fetching route from Azure Maps API...');
+    const response = await fetch(routeURL);
+    const data = await response.json();
+
+    if (!data.routes || data.routes.length === 0) {
+      throw new Error('No route found in Azure Maps response');
+    }
+
+    // Extract the route points from the response
+    const route = data.routes[0];
+    const legs = route.legs || [];
+    const points: atlas.data.Position[] = [];
+
+    // Process each leg of the route and collect the points
+    legs.forEach((leg: any) => {
+      const legPoints = leg.points || [];
+      legPoints.forEach((point: any) => {
+        // Azure Maps returns points as [lat, lng], but we need [lng, lat] for atlas.data.Position
+        points.push([point.longitude, point.latitude]);
+      });
+    });
+
+    console.log(`Successfully fetched route with ${points.length} points`);
+    return { points };
+  } catch (error) {
+    console.error('Error fetching route from Azure Maps:', error);
+    
+    // Fallback to a simpler route if the API call fails
+    console.warn('Falling back to simulated route...');
+    const points = [
+      startPosition,
+      [
+        startPosition[0] + (endPosition[0] - startPosition[0]) * 0.25,
+        startPosition[1] + (endPosition[1] - startPosition[1]) * 0.3
+      ],
+      [
+        startPosition[0] + (endPosition[0] - startPosition[0]) * 0.5,
+        startPosition[1] + (endPosition[1] - startPosition[1]) * 0.6
+      ],
+      [
+        startPosition[0] + (endPosition[0] - startPosition[0]) * 0.75,
+        startPosition[1] + (endPosition[1] - startPosition[1]) * 0.7
+      ],
+      endPosition
+    ];
+
+    return { points: points as atlas.data.Position[] };
+  }
+};
+
+// Fetch route from Azure Maps without requiring a map instance
+export const fetchRouteFromAzureMaps = async (
+  startLat: number, 
+  startLng: number, 
+  endLat: number, 
+  endLng: number
+): Promise<[number, number][]> => {
+  try {
+    // Format the route request URL for Azure Maps
+    const routeURL = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&subscription-key=${
+      import.meta.env.VITE_AZURE_MAPS_SUBSCRIPTION_KEY
+    }&query=${startLat},${startLng}:${endLat},${endLng}&routeRepresentation=polyline&instructionsType=text&travelMode=car`;
+
+    console.log('Fetching route from Azure Maps API...');
+    const response = await fetch(routeURL);
+    const data = await response.json();
+
+    if (!data.routes || data.routes.length === 0) {
+      throw new Error('No route found in Azure Maps response');
+    }
+
+    // Extract the route points from the response
+    const route = data.routes[0];
+    const legs = route.legs || [];
+    const points: [number, number][] = [];
+
+    // Process each leg of the route and collect the points
+    legs.forEach((leg: any) => {
+      const legPoints = leg.points || [];
+      legPoints.forEach((point: any) => {
+        // Return points as [lat, lng] format for Leaflet compatibility
+        points.push([point.latitude, point.longitude]);
+      });
+    });
+
+    console.log(`Successfully fetched route with ${points.length} points`);
+    return points;
+  } catch (error) {
+    console.error('Error fetching route from Azure Maps:', error);
+    throw error;
+  }
 };
 
 // Get user's geolocation
