@@ -1,0 +1,67 @@
+name: iOS Build
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ios-build:
+    name: iOS Build
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+      
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+          bundler-cache: true
+      
+      - name: Install Cocoapods
+        run: |
+          sudo gem install cocoapods
+      
+      - name: Install Node dependencies
+        run: |
+          cd mobile/bookmywhip
+          npm ci
+      
+      - name: Create .env file
+        run: |
+          cd mobile/bookmywhip
+          echo "API_BASE_URL=${{ secrets.API_BASE_URL }}" > .env
+          echo "API_VERSION=${{ secrets.API_VERSION }}" >> .env
+          echo "AZURE_MAPS_SUBSCRIPTION_KEY=${{ secrets.AZURE_MAPS_SUBSCRIPTION_KEY }}" >> .env
+          echo "STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}" >> .env
+      
+      - name: Install iOS pods
+        run: |
+          cd mobile/bookmywhip/ios
+          pod install
+      
+      - name: Build iOS app
+        run: |
+          cd mobile/bookmywhip/ios
+          xcodebuild -workspace BookMyWhip.xcworkspace -scheme BookMyWhip -configuration Release -sdk iphoneos -archivePath ./build/BookMyWhip.xcarchive archive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+      
+      - name: Export IPA
+        run: |
+          cd mobile/bookmywhip/ios
+          mkdir -p ./build/exports
+          xcodebuild -exportArchive -archivePath ./build/BookMyWhip.xcarchive -exportPath ./build/exports -exportOptionsPlist ./exportOptions.plist -allowProvisioningUpdates CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO || echo "IPA export requires valid code signing"
+      
+      - name: Upload Archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-archive
+          path: mobile/bookmywhip/ios/build/BookMyWhip.xcarchive

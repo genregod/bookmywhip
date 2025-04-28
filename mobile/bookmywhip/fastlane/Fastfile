@@ -1,0 +1,70 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build Android release APK"
+  lane :build_apk do
+    gradle(
+      task: "clean assembleRelease",
+      project_dir: "./android"
+    )
+  end
+
+  desc "Build Android release AAB"
+  lane :build_aab do
+    gradle(
+      task: "clean bundleRelease",
+      project_dir: "./android"
+    )
+  end
+
+  desc "Submit to Play Store internal testing track"
+  lane :deploy_internal do
+    gradle(
+      task: "clean bundleRelease",
+      project_dir: "./android"
+    )
+    upload_to_play_store(
+      track: 'internal',
+      aab: "./android/app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
+
+platform :ios do
+  desc "Build iOS app"
+  lane :build do
+    cocoapods(
+      podfile: "./ios/Podfile"
+    )
+    build_app(
+      workspace: "./ios/BookMyWhip.xcworkspace",
+      scheme: "BookMyWhip",
+      clean: true,
+      export_method: "development",
+      skip_codesigning: true,
+      skip_archive: false,
+      skip_package_ipa: false,
+      destination: "generic/platform=iOS" 
+    )
+  end
+
+  desc "Submit to TestFlight"
+  lane :beta do
+    cocoapods(
+      podfile: "./ios/Podfile"
+    )
+    sync_code_signing(type: "appstore")
+    build_app(
+      workspace: "./ios/BookMyWhip.xcworkspace",
+      scheme: "BookMyWhip",
+      clean: true,
+      export_method: "app-store"
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
