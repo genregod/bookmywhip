@@ -1,0 +1,63 @@
+[![Route Animated Icon | Free maps and location Animated Icon](https://tse4.mm.bing.net/th?id=OIP.jrcC2bsvvJ5YL1E2DliJdwHaHa&pid=Api)](https://www.flaticon.com/free-animated-icon/route_10606384)
+After reviewing your GitHub repository at [https://github.com/genregod/bookmywhip](https://github.com/genregod/bookmywhip), it appears that the route animation issue stems from how the route data is fetched and rendered. The current implementation seems to draw a straight line between two points, rather than following the actual road network.
+
+**Here's a step-by-step guide to resolve this:**
+
+---
+
+### ✅ 1. **Ensure Proper Route Data Retrieval**
+
+Verify that your application is correctly fetching detailed route information from the Azure Maps Route Directions API. The API should return a `routePath` containing the coordinates that represent the path along the road network. Ensure that your API call includes the `routeRepresentation=polyline` parameter to get the full path. ([azure-docs/articles/azure-maps/migrate-calculate-route.md at main](https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/azure-maps/migrate-calculate-route.md?utm_source=chatgpt.com))
+
+**Example API Call:**
+
+
+```javascript
+const response = await fetch(`https://atlas.microsoft.com/route/directions/json?api-version=1.0&query=${startLat},${startLon}:${endLat},${endLon}&routeRepresentation=polyline&subscription-key=YOUR_AZURE_MAPS_KEY`);
+const data = await response.json();
+const routeCoordinates = data.routes[0].legs[0].points.map(point => [point.latitude, point.longitude]);
+```
+
+
+---
+
+### ✅ 2. **Update the Animation Function**
+
+Once you have the detailed route coordinates, update your animation function to iterate through these points, creating a smooth animation along the actual route.
+
+**Example Animation Function:**
+
+
+```javascript
+function animateRoute(routeCoordinates) {
+  const polyline = L.polyline([], { color: 'blue' }).addTo(map);
+  let index = 0;
+
+  function drawSegment() {
+    if (index < routeCoordinates.length) {
+      polyline.addLatLng(routeCoordinates[index]);
+      index++;
+      setTimeout(drawSegment, 100); // Adjust the speed as needed
+    }
+  }
+
+  drawSegment();
+}
+```
+
+
+---
+
+### ✅ 3. **Integrate with Your Existing Codebase**
+
+Replace the existing route drawing logic in your codebase with the updated functions above. Ensure that the `routeCoordinates` are correctly passed to the `animateRoute` function after fetching them from the API.
+
+---
+
+### ✅ 4. **Test the Implementation**
+
+After making these changes, test the route animation feature to confirm that it now follows the actual roads between the specified points. Adjust the animation speed and styling as needed to fit your application's requirements.
+
+---
+
+If you encounter any issues during this process or need further assistance integrating these changes into your specific codebase, feel free to provide more details or specific code snippets, and I can offer more targeted help. 

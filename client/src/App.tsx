@@ -138,6 +138,7 @@ function DemoRoutes() {
       <Route path="/navigation-demo" component={NavigationDemo} />
       <Route path="/route-preview-demo" component={RoutePreviewDemo} />
       <Route path="/route-animation-test" component={RouteAnimationTest} />
+      <Route path="/azure-maps-demo" component={AzureMapsDemo} />
       <Route path="*">
         <Redirect to="/demo" />
       </Route>

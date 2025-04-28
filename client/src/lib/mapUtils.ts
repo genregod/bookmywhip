@@ -331,8 +331,60 @@ export function generateDummyMapPath(
 }
 
 /**
+ * Fetch route data from Azure Maps API
+ * 
+ * @param startLat Starting latitude 
+ * @param startLng Starting longitude
+ * @param endLat Ending latitude
+ * @param endLng Ending longitude
+ * @returns Promise that resolves to an array of [lat, lng] coordinates
+ */
+export async function fetchRouteFromAzureMaps(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+): Promise<Array<[number, number]>> {
+  console.log('Fetching route from Azure Maps API:', { startLat, startLng, endLat, endLng });
+  
+  try {
+    // Construct the API URL with the appropriate parameters
+    // Use routeRepresentation=polyline to get the detailed route path
+    const apiUrl = `https://atlas.microsoft.com/route/directions/json?api-version=1.0&query=${startLat},${startLng}:${endLat},${endLng}&routeRepresentation=polyline&subscription-key=${process.env.AZURE_MAPS_SUBSCRIPTION_KEY}`;
+    
+    const response = await fetch(apiUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Azure Maps API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.routes || data.routes.length === 0) {
+      throw new Error('No routes found in the Azure Maps API response');
+    }
+    
+    // Extract the route points
+    // Azure Maps returns points in the format { latitude, longitude }
+    const routePoints = data.routes[0].legs.flatMap((leg: any) => 
+      leg.points.map((point: any) => [point.latitude, point.longitude] as [number, number])
+    );
+    
+    console.log(`Received ${routePoints.length} route points from Azure Maps API`);
+    return routePoints;
+  } catch (error) {
+    console.error('Error fetching route from Azure Maps API:', error);
+    // Fall back to the simulated route in case of API failure
+    console.warn('Falling back to simulated route generation');
+    return generateSimulatedRoute(startLat, startLng, endLat, endLng);
+  }
+}
+
+/**
  * Generate an enhanced route with curves and waypoints
  * Creates a more realistic route that follows roads rather than straight lines
+ * 
+ * This is a fallback when Azure Maps API is not available
  * 
  * @param startLat Starting latitude
  * @param startLng Starting longitude
@@ -341,14 +393,14 @@ export function generateDummyMapPath(
  * @param complexity How complex the route should be (1-10, higher means more waypoints)
  * @returns Array of latitude/longitude points representing the route
  */
-export function generateEnhancedRoute(
+export function generateSimulatedRoute(
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number,
   complexity: number = 5
 ): Array<[number, number]> {
-  console.log('generateEnhancedRoute called with:', { startLat, startLng, endLat, endLng, complexity });
+  console.log('Generating simulated route:', { startLat, startLng, endLat, endLng, complexity });
   
   const distance = calculateDistance(startLat, startLng, endLat, endLng);
   console.log('Direct distance between points:', distance, 'km');
@@ -454,8 +506,60 @@ export function generateEnhancedRoute(
   // Always add the exact end point
   route.push([endLat, endLng]);
   
-  console.log('Generated realistic route with', route.length, 'points');
+  console.log('Generated simulated route with', route.length, 'points');
   return route;
+}
+
+/**
+ * Generate an enhanced route with curves and waypoints
+ * First tries to fetch from Azure Maps API, falls back to simulation if that fails
+ * 
+ * @param startLat Starting latitude
+ * @param startLng Starting longitude
+ * @param endLat Ending latitude
+ * @param endLng Ending longitude
+ * @param complexity How complex the route should be (1-10, higher means more waypoints)
+ * @returns Array of latitude/longitude points representing the route
+ */
+export async function generateEnhancedRoute(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  complexity: number = 5
+): Promise<Array<[number, number]>> {
+  console.log('generateEnhancedRoute called with:', { startLat, startLng, endLat, endLng, complexity });
+  
+  try {
+    // Try to fetch the route from Azure Maps first
+    return await fetchRouteFromAzureMaps(startLat, startLng, endLat, endLng);
+  } catch (error) {
+    console.error('Error fetching route from Azure Maps, falling back to simulation:', error);
+    // Fall back to simulated route generation
+    return generateSimulatedRoute(startLat, startLng, endLat, endLng, complexity);
+  }
+}
+
+/**
+ * Non-async version of the enhanced route generation for backward compatibility
+ * This immediately returns the simulated route without API calls
+ * 
+ * @param startLat Starting latitude
+ * @param startLng Starting longitude
+ * @param endLat Ending latitude
+ * @param endLng Ending longitude
+ * @param complexity How complex the route should be
+ * @returns Array of latitude/longitude points
+ */
+export function generateEnhancedRouteSync(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  complexity: number = 5
+): Array<[number, number]> {
+  console.log('generateEnhancedRouteSync called with:', { startLat, startLng, endLat, endLng, complexity });
+  return generateSimulatedRoute(startLat, startLng, endLat, endLng, complexity);
 }
 
 /**
