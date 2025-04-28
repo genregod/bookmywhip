@@ -22,6 +22,7 @@ import WazeDemoPage from "@/pages/waze-demo";
 import NavigationDemo from "@/pages/navigation-demo";
 import RoutePreviewDemo from "@/pages/route-preview-demo";
 import RouteAnimationTest from "@/pages/route-animation-test";
+import AzureMapsDemo from "@/pages/azure-maps-demo";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";
@@ -153,7 +154,8 @@ function App() {
                     window.location.pathname.includes('/waze-demo') ||
                     window.location.pathname.includes('/navigation-demo') ||
                     window.location.pathname.includes('/route-preview-demo') ||
-                    window.location.pathname.includes('/route-animation-test');
+                    window.location.pathname.includes('/route-animation-test') ||
+                    window.location.pathname.includes('/azure-maps-demo');
   
   if (isDemoMode) {
     return (

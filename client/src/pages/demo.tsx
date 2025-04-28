@@ -75,7 +75,7 @@ export default function DemoPage() {
         </div>
         
         {/* Links to Demo Pages */}
-        <div className="mb-6 flex gap-3">
+        <div className="mb-6 flex flex-wrap gap-3">
           <Button variant="outline" asChild>
             <Link href="/route-preview-demo">
               Go to Route Preview Demo
@@ -85,6 +85,12 @@ export default function DemoPage() {
           <Button variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800" asChild>
             <Link href="/route-animation-test">
               Animation Test Page
+            </Link>
+          </Button>
+          
+          <Button variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800" asChild>
+            <Link href="/azure-maps-demo">
+              Azure Maps Demo
             </Link>
           </Button>
         </div>
