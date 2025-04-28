@@ -111,7 +111,7 @@ export default function RouteAnimationTest() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gradient">Route Animation Test</h1>
           <p className="text-lg text-muted-foreground mb-6">
-            Testing the RefPattern implementation of AnimatedRoutePreview
+            Demonstrating real-world routes from Azure Maps with advanced animation controls
           </p>
         </div>
         <Button variant="outline" asChild className="mt-2">
@@ -123,9 +123,9 @@ export default function RouteAnimationTest() {
       
       <Card>
         <CardHeader>
-          <CardTitle>Ref-Based Animation Control Test</CardTitle>
+          <CardTitle>Azure Maps Route Animation</CardTitle>
           <CardDescription>
-            This demo tests the useImperativeHandle + forwardRef pattern for controlling animations
+            This demo showcases real-world routes from Azure Maps API with programmatic animation controls
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -214,6 +214,16 @@ export default function RouteAnimationTest() {
                   </span>
                 </div>
               </div>
+            </div>
+            
+            <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+              <h3 className="font-medium text-green-800 mb-2">Azure Maps Integration</h3>
+              <p className="text-sm text-green-700 mb-2">
+                This demo attempts to fetch real-world routes from the Azure Maps API. If the API request fails, it will automatically fall back to a simulated route.
+              </p>
+              <p className="text-sm text-green-700">
+                <span className="font-medium">Current Route:</span> San Francisco to San Jose
+              </p>
             </div>
           </div>
         </CardContent>

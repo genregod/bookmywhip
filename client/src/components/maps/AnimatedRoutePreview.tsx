@@ -141,49 +141,104 @@ const AnimatedRoutePreview = forwardRef<AnimatedRoutePreviewRef, AnimatedRoutePr
   useEffect(() => {
     console.log('Route effect running', { startPoint, endPoint, routeComplexity });
     
-    // Use the synchronous version for this component to avoid TypeScript issues
-    // In a real-world implementation, you'd use the async version with proper handling
-    const newRoute = generateEnhancedRouteSync(
-      startPoint[0], startPoint[1],
-      endPoint[0], endPoint[1],
-      routeComplexity
-    );
+    let isMounted = true; // Flag to handle component unmount
     
-    console.log('Generated new route with length:', newRoute.length);
-    setRoute(newRoute);
+    // Fetch route using Azure Maps API
+    const fetchRoute = async () => {
+      try {
+        // Try to use the Azure Maps API to get a real-world route
+        console.log('Attempting to fetch route from Azure Maps API...');
+        const azureRoute = await fetchRouteFromAzureMaps(
+          startPoint[0], startPoint[1],
+          endPoint[0], endPoint[1]
+        );
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          console.log(`Successfully fetched Azure Maps route with ${azureRoute.length} points`);
+          setRoute(azureRoute);
+          
+          // Reset animation state
+          setVisibleRoute([]);
+          setAnimatedCarPosition(null);
+          setAnimationComplete(false);
+          
+          // Generate animation steps
+          const newAnimationSteps = generateRouteAnimationSteps(azureRoute, 60);
+          console.log('Generated animation steps:', newAnimationSteps.length);
+          setAnimationSteps(newAnimationSteps);
+          
+          // Fit map to route bounds if enabled
+          if (fitBounds && azureRoute.length > 0) {
+            const bounds = getRouteBounds(azureRoute, boundsPadding);
+            map.fitBounds([
+              [bounds.minLat, bounds.minLng],
+              [bounds.maxLat, bounds.maxLng]
+            ] as [[number, number], [number, number]]);
+          }
+          
+          // Auto-start animation after a short delay
+          if (autoStart) {
+            console.log('Auto-start is enabled, setting timeout...');
+            setTimeout(() => {
+              if (isMounted) {
+                console.log('Starting animation (auto)');
+                startAnimation();
+              }
+            }, 1000);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching Azure Maps route:', error);
+        
+        // Fall back to synchronous simulated route if API fails
+        if (isMounted) {
+          console.warn('Falling back to simulated route generation');
+          const simulatedRoute = generateEnhancedRouteSync(
+            startPoint[0], startPoint[1],
+            endPoint[0], endPoint[1],
+            routeComplexity
+          );
+          
+          console.log(`Generated fallback route with ${simulatedRoute.length} points`);
+          setRoute(simulatedRoute);
+          
+          // Reset animation state
+          setVisibleRoute([]);
+          setAnimatedCarPosition(null);
+          setAnimationComplete(false);
+          
+          // Generate animation steps
+          const newAnimationSteps = generateRouteAnimationSteps(simulatedRoute, 60);
+          setAnimationSteps(newAnimationSteps);
+          
+          // Fit map to route bounds if enabled
+          if (fitBounds && simulatedRoute.length > 0) {
+            const bounds = getRouteBounds(simulatedRoute, boundsPadding);
+            map.fitBounds([
+              [bounds.minLat, bounds.minLng],
+              [bounds.maxLat, bounds.maxLng]
+            ] as [[number, number], [number, number]]);
+          }
+          
+          // Auto-start animation after a short delay
+          if (autoStart) {
+            setTimeout(() => {
+              if (isMounted) {
+                startAnimation();
+              }
+            }, 1000);
+          }
+        }
+      }
+    };
     
-    // Reset animation state
-    setVisibleRoute([]);
-    setAnimatedCarPosition(null);
-    setAnimationComplete(false);
+    // Start fetching the route
+    fetchRoute();
     
-    // Generate animation steps
-    const newAnimationSteps = generateRouteAnimationSteps(newRoute, 60);
-    console.log('Generated animation steps:', newAnimationSteps.length);
-    setAnimationSteps(newAnimationSteps);
-    
-    // Fit map to route bounds if enabled
-    if (fitBounds && newRoute.length > 0) {
-      const bounds = getRouteBounds(newRoute, boundsPadding);
-      map.fitBounds([
-        [bounds.minLat, bounds.minLng],
-        [bounds.maxLat, bounds.maxLng]
-      ] as [[number, number], [number, number]]);
-    }
-    
-    console.log('Auto-start is set to:', autoStart);
-    // Auto-start animation if enabled
-    if (autoStart) {
-      // Small delay to ensure map is ready
-      console.log('Setting timeout to start animation');
-      setTimeout(() => {
-        console.log('Timeout fired, calling startAnimation');
-        startAnimation();
-      }, 1000);
-    }
-    
-    // Cleanup animation on unmount
+    // Cleanup animation and set isMounted flag on unmount
     return () => {
+      isMounted = false;
       if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
       }
