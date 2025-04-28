@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BookMyWhip</string>
+    <string name="welcome_message">Welcome to BookMyWhip!</string>
+    <string name="location_permission_rationale">BookMyWhip needs location access to find nearby rides and drivers.</string>
+    <string name="camera_permission_rationale">BookMyWhip needs camera access for profile photos.</string>
+    <string name="gallery_permission_rationale">BookMyWhip needs gallery access to upload profile photos.</string>
+</resources>
