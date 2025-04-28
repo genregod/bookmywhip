@@ -137,6 +137,7 @@ function DemoRoutes() {
       <Route path="/waze-demo" component={WazeDemoPage} />
       <Route path="/navigation-demo" component={NavigationDemo} />
       <Route path="/route-preview-demo" component={RoutePreviewDemo} />
+      <Route path="/route-animation-test" component={RouteAnimationTest} />
       <Route path="*">
         <Redirect to="/demo" />
       </Route>
@@ -150,7 +151,8 @@ function App() {
                     window.location.pathname.includes('/socket-demo') || 
                     window.location.pathname.includes('/waze-demo') ||
                     window.location.pathname.includes('/navigation-demo') ||
-                    window.location.pathname.includes('/route-preview-demo');
+                    window.location.pathname.includes('/route-preview-demo') ||
+                    window.location.pathname.includes('/route-animation-test');
   
   if (isDemoMode) {
     return (
