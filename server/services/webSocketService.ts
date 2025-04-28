@@ -1,9 +1,8 @@
-import { Server as SocketIOServer } from 'socket.io';
-import { Server as HttpServer } from 'http';
 import { WebSocketServer } from 'ws';
-
-// Map to track active client connections by user ID
-const activeClients = new Map<number, string[]>();
+import WebSocket from 'ws';
+import { Server as HttpServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { storage } from '../storage';
 
 /**
  * WebSocket Service for real-time communications
@@ -14,127 +13,24 @@ const activeClients = new Map<number, string[]>();
 export class WebSocketService {
   private io: SocketIOServer | null = null;
   private wss: WebSocketServer | null = null;
+  private connections: Map<number, Set<WebSocket>> = new Map();
+  private rideConnections: Map<number, Set<WebSocket>> = new Map();
   
   /**
    * Initialize WebSocket server
    * @param httpServer The HTTP server to attach WebSocket to
    */
   initialize(httpServer: HttpServer) {
-    // Initialize Socket.IO
-    this.io = new SocketIOServer(httpServer, {
-      path: '/socket.io',
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
-      }
-    });
-    
-    // Initialize native WebSockets on a different path
+    // Create WebSocket server with specific path
+    // Using /ws path to not conflict with Vite's HMR WebSocket
     this.wss = new WebSocketServer({ 
-      server: httpServer, 
-      path: '/ws' 
+      server: httpServer,
+      path: '/ws'
     });
     
-    this.setupSocketIOEvents();
     this.setupWebSocketEvents();
     
     console.log('WebSocket services initialized');
-  }
-  
-  /**
-   * Set up Socket.IO event handlers
-   */
-  private setupSocketIOEvents() {
-    if (!this.io) return;
-    
-    this.io.on('connection', (socket) => {
-      console.log('New Socket.IO client connected:', socket.id);
-      
-      // Handle client authentication
-      socket.on('authenticate', (data: { userId: number }) => {
-        const { userId } = data;
-        if (!userId) return;
-        
-        // Store socket ID for this user
-        if (!activeClients.has(userId)) {
-          activeClients.set(userId, []);
-        }
-        
-        activeClients.get(userId)?.push(socket.id);
-        socket.data.userId = userId;
-        
-        console.log(`User ${userId} authenticated on socket ${socket.id}`);
-        
-        // Join user-specific room
-        socket.join(`user-${userId}`);
-      });
-      
-      // Handle ride-related events
-      socket.on('join-ride', (rideId: number) => {
-        socket.join(`ride-${rideId}`);
-        console.log(`Socket ${socket.id} joined ride-${rideId}`);
-      });
-      
-      socket.on('leave-ride', (rideId: number) => {
-        socket.leave(`ride-${rideId}`);
-        console.log(`Socket ${socket.id} left ride-${rideId}`);
-      });
-      
-      // Handle location updates from drivers
-      socket.on('driver-location', (data: { 
-        driverId: number, 
-        latitude: number, 
-        longitude: number,
-        heading: number,
-        speed: number,
-        timestamp: number 
-      }) => {
-        // Broadcast to all clients following this driver (e.g., active ride participants)
-        this.io?.to(`driver-${data.driverId}`).emit('driver-location-update', data);
-      });
-      
-      // Handle disconnect
-      socket.on('disconnect', () => {
-        console.log('Socket.IO client disconnected:', socket.id);
-        
-        // Remove socket ID from active clients
-        if (socket.data.userId) {
-          const userSockets = activeClients.get(socket.data.userId) || [];
-          const updatedSockets = userSockets.filter(id => id !== socket.id);
-          
-          if (updatedSockets.length > 0) {
-            activeClients.set(socket.data.userId, updatedSockets);
-          } else {
-            activeClients.delete(socket.data.userId);
-          }
-        }
-      });
-    });
-    
-    // Create namespaces for specific features
-    
-    // Rides namespace
-    const ridesNamespace = this.io.of('/rides');
-    ridesNamespace.on('connection', (socket) => {
-      console.log('Client connected to rides namespace:', socket.id);
-      
-      socket.on('get-nearby-drivers', (data: { latitude: number, longitude: number, radius: number }) => {
-        // This would be handled by a service to find nearby drivers
-        // Just acknowledge the request for now
-        socket.emit('nearby-drivers-response', { success: true });
-      });
-    });
-    
-    // Drivers namespace
-    const driversNamespace = this.io.of('/drivers');
-    driversNamespace.on('connection', (socket) => {
-      console.log('Client connected to drivers namespace:', socket.id);
-      
-      socket.on('set-driver-status', (data: { driverId: number, status: 'online' | 'offline' | 'busy' }) => {
-        // Update driver status and notify interested parties
-        driversNamespace.emit('driver-status-update', data);
-      });
-    });
   }
   
   /**
@@ -143,60 +39,190 @@ export class WebSocketService {
   private setupWebSocketEvents() {
     if (!this.wss) return;
     
-    this.wss.on('connection', (ws, req) => {
-      console.log('New WebSocket client connected');
+    this.wss.on('connection', (ws: WebSocket) => {
+      console.log('WebSocket client connected');
       
-      // Parse query params to get user ID
-      const url = new URL(req.url || '', `http://${req.headers.host}`);
-      const userId = parseInt(url.searchParams.get('userId') || '0', 10);
+      // Keep track of user ID if authenticated
+      let userId: number | null = null;
+      let subscribedRides: Set<number> = new Set();
       
-      if (userId) {
-        // Store connection for this user
-        if (!activeClients.has(userId)) {
-          activeClients.set(userId, []);
-        }
-        
-        // We don't have socket IDs here, so use object reference as key
-        (ws as any).userId = userId;
-        
-        console.log(`User ${userId} connected via WebSocket`);
-      }
-      
-      ws.on('message', (message) => {
+      // Handle incoming messages
+      ws.on('message', (data: WebSocket.Data) => {
         try {
-          const data = JSON.parse(message.toString());
+          const message = JSON.parse(data.toString());
+          console.log('Received message:', message);
           
-          // Handle different message types
-          switch (data.type) {
-            case 'authenticate':
-              break;
+          if (message.type === 'authenticate') {
+            // Handle authentication
+            userId = Number(message.payload?.userId);
+            
+            if (userId) {
+              // Add client to user-specific connection list
+              if (!this.connections.has(userId)) {
+                this.connections.set(userId, new Set());
+              }
+              this.connections.get(userId)?.add(ws);
               
-            case 'driver-location':
-              this.broadcastDriverLocation(data.payload);
-              break;
+              // Send acknowledgment
+              this.sendToClient(ws, {
+                type: 'authenticated',
+                payload: {
+                  userId,
+                  timestamp: new Date().toISOString()
+                }
+              });
               
-            default:
-              console.log('Unknown message type:', data.type);
+              console.log(`WebSocket client authenticated with userId: ${userId}`);
+            }
+          } 
+          else if (message.type === 'subscribe-ride') {
+            // Handle ride subscription
+            const rideId = Number(message.payload?.rideId);
+            
+            if (rideId) {
+              // Add to ride-specific connection list
+              if (!this.rideConnections.has(rideId)) {
+                this.rideConnections.set(rideId, new Set());
+              }
+              this.rideConnections.get(rideId)?.add(ws);
+              subscribedRides.add(rideId);
+              
+              // Send acknowledgment
+              this.sendToClient(ws, {
+                type: 'subscribed',
+                payload: {
+                  rideId,
+                  timestamp: new Date().toISOString()
+                }
+              });
+              
+              console.log(`WebSocket client subscribed to ride: ${rideId}`);
+            }
+          }
+          else if (message.type === 'driver-location') {
+            // Handle driver location updates
+            if (!userId) {
+              this.sendToClient(ws, {
+                type: 'error',
+                payload: {
+                  message: 'Not authenticated',
+                  timestamp: new Date().toISOString()
+                }
+              });
+              return;
+            }
+            
+            // Check if this driver has an active ride
+            storage.getActiveRideByDriverId(userId)
+              .then(ride => {
+                if (ride) {
+                  // Broadcast to all clients subscribed to this ride
+                  this.notifyRide(ride.id, 'driver-location', {
+                    driverId: userId,
+                    rideId: ride.id,
+                    ...message.payload,
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              })
+              .catch(error => {
+                console.error('Error processing driver location update:', error);
+              });
+          }
+          else if (message.type === 'ride-request') {
+            // Handle ride requests
+            if (!userId) {
+              this.sendToClient(ws, {
+                type: 'error',
+                payload: {
+                  message: 'Not authenticated',
+                  timestamp: new Date().toISOString()
+                }
+              });
+              return;
+            }
+            
+            // Process the ride request
+            // For now, just broadcast to all available drivers
+            // In a real implementation, we would use the proximity service to find nearby drivers
+            const rideRequest = {
+              type: 'new-ride-request',
+              payload: {
+                riderId: userId,
+                ...message.payload,
+                timestamp: new Date().toISOString()
+              }
+            };
+            
+            // Since we don't have a way to know which drivers are available,
+            // we'll just send an acknowledgment for now
+            this.sendToClient(ws, {
+              type: 'ride-requested',
+              payload: {
+                success: true,
+                message: 'Ride request received',
+                timestamp: new Date().toISOString()
+              }
+            });
+          }
+          else if (message.type === 'ping') {
+            // Handle ping messages (keep-alive)
+            this.sendToClient(ws, {
+              type: 'pong',
+              payload: {
+                timestamp: new Date().toISOString()
+              }
+            });
+          }
+          else {
+            // Handle unknown message types
+            console.log('Unknown message type:', message.type);
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('Error handling WebSocket message:', error);
         }
       });
       
+      // Handle disconnection
       ws.on('close', () => {
         console.log('WebSocket client disconnected');
         
-        // Clean up user connection
-        const userId = (ws as any).userId;
-        if (userId && activeClients.has(userId)) {
-          // For raw WebSockets, we don't have IDs, so we can't track multiple connections
-          // per user as easily as with Socket.IO
-          activeClients.delete(userId);
+        // Remove from connections map
+        if (userId) {
+          const userConnections = this.connections.get(userId);
+          if (userConnections) {
+            userConnections.delete(ws);
+            if (userConnections.size === 0) {
+              this.connections.delete(userId);
+            }
+          }
         }
+        
+        // Remove from ride subscriptions
+        subscribedRides.forEach(rideId => {
+          const rideConnections = this.rideConnections.get(rideId);
+          if (rideConnections) {
+            rideConnections.delete(ws);
+            if (rideConnections.size === 0) {
+              this.rideConnections.delete(rideId);
+            }
+          }
+        });
       });
       
-      // Send initial connection acknowledgment
-      ws.send(JSON.stringify({ type: 'connection-ack', timestamp: Date.now() }));
+      // Handle errors
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+      });
+      
+      // Send welcome message
+      this.sendToClient(ws, {
+        type: 'welcome',
+        payload: {
+          message: 'Connected to BookMyWhip real-time service',
+          timestamp: new Date().toISOString()
+        }
+      });
     });
   }
   
@@ -204,56 +230,96 @@ export class WebSocketService {
    * Send a notification to a specific user across all their connected devices
    */
   notifyUser(userId: number, eventName: string, data: any) {
-    if (!this.io) return;
+    const userConnections = this.connections.get(userId);
     
-    // Notify via Socket.IO
-    this.io.to(`user-${userId}`).emit(eventName, data);
+    if (userConnections && userConnections.size > 0) {
+      const message = {
+        type: eventName,
+        payload: {
+          ...data,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      userConnections.forEach(clientWs => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(JSON.stringify(message));
+        }
+      });
+      
+      console.log(`Notified user ${userId} with event ${eventName}`);
+      return true;
+    }
     
-    // For native WebSockets, we'd need to iterate through connections and check userId
-    // This is more complex and would require additional tracking
+    console.log(`No active connections for user ${userId}`);
+    return false;
   }
   
   /**
    * Send a notification to all participants in a ride
    */
   notifyRide(rideId: number, eventName: string, data: any) {
-    if (!this.io) return;
+    const rideConnections = this.rideConnections.get(rideId);
     
-    this.io.to(`ride-${rideId}`).emit(eventName, data);
-  }
-  
-  /**
-   * Broadcast driver location update to interested parties
-   */
-  broadcastDriverLocation(data: { 
-    driverId: number, 
-    latitude: number, 
-    longitude: number,
-    heading?: number,
-    speed?: number,
-    timestamp: number 
-  }) {
-    if (!this.io) return;
+    if (rideConnections && rideConnections.size > 0) {
+      const message = {
+        type: eventName,
+        payload: {
+          ...data,
+          rideId,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      rideConnections.forEach(clientWs => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(JSON.stringify(message));
+        }
+      });
+      
+      console.log(`Notified ride ${rideId} participants with event ${eventName}`);
+      return true;
+    }
     
-    // Broadcast to Socket.IO clients
-    this.io.to(`driver-${data.driverId}`).emit('driver-location-update', data);
-    
-    // For active ride associated with this driver, notify participants
-    // This would require looking up active rides in a real implementation
+    console.log(`No active connections for ride ${rideId}`);
+    return false;
   }
   
   /**
    * Broadcast a notification to all connected clients
    */
   broadcastAll(eventName: string, data: any) {
-    if (!this.io) return;
+    if (!this.wss) return false;
     
-    this.io.emit(eventName, data);
+    const message = {
+      type: eventName,
+      payload: {
+        ...data,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    let clientCount = 0;
+    
+    this.wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message));
+        clientCount++;
+      }
+    });
+    
+    console.log(`Broadcasted event ${eventName} to ${clientCount} clients`);
+    return clientCount > 0;
+  }
+  
+  /**
+   * Helper method to send a message to a specific client
+   */
+  private sendToClient(client: WebSocket, message: any) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
   }
 }
 
-// Create a singleton instance
 export const webSocketService = new WebSocketService();
-
-// Export the singleton as default
-export default webSocketService;
