@@ -329,3 +329,257 @@ export function generateDummyMapPath(
   
   return points;
 }
+
+/**
+ * Generate an enhanced route with curves and waypoints
+ * Creates a more realistic route that follows roads rather than straight lines
+ * 
+ * @param startLat Starting latitude
+ * @param startLng Starting longitude
+ * @param endLat Ending latitude
+ * @param endLng Ending longitude
+ * @param complexity How complex the route should be (1-10, higher means more waypoints)
+ * @returns Array of latitude/longitude points representing the route
+ */
+export function generateEnhancedRoute(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  complexity: number = 5
+): Array<[number, number]> {
+  // Number of points scales with complexity and distance
+  const distance = calculateDistance(startLat, startLng, endLat, endLng);
+  const basePointCount = Math.max(10, Math.floor(distance * 3));
+  const pointCount = Math.min(100, Math.floor(basePointCount * (complexity / 5)));
+  
+  const points: Array<[number, number]> = [];
+  points.push([startLat, startLng]);
+  
+  // Create a main offset direction to simulate road detours
+  // The route will generally curve in this direction
+  const mainOffsetSeed = (startLat + startLng) * (endLat + endLng);
+  const mainOffsetDirection = Math.sin(mainOffsetSeed) > 0 ? 1 : -1;
+  
+  // Calculate the midpoint with an offset to create a curved path
+  const midLat = (startLat + endLat) / 2;
+  const midLng = (startLng + endLng) / 2;
+  
+  // Perpendicular offset to make the route curve
+  // We create a vector perpendicular to the direct route
+  const directVectorLat = endLat - startLat;
+  const directVectorLng = endLng - startLng;
+  
+  // Perpendicular vector (rotate 90 degrees)
+  const perpVectorLat = -directVectorLng;
+  const perpVectorLng = directVectorLat;
+  
+  // Normalize the perpendicular vector
+  const perpVectorLength = Math.sqrt(perpVectorLat * perpVectorLat + perpVectorLng * perpVectorLng);
+  const normPerpVectorLat = perpVectorLat / perpVectorLength;
+  const normPerpVectorLng = perpVectorLng / perpVectorLength;
+  
+  // Scale the offset based on distance
+  const offsetScale = distance * 0.1 * mainOffsetDirection;
+  
+  // Generate route segments using control points
+  const controlPoints: Array<[number, number]> = [];
+  
+  // Start control point
+  controlPoints.push([startLat, startLng]);
+  
+  // Add intermediate control points
+  const numControlPoints = Math.min(5, Math.max(2, Math.floor(complexity / 2)));
+  
+  for (let i = 1; i <= numControlPoints; i++) {
+    const ratio = i / (numControlPoints + 1);
+    
+    // Linear interpolation with perpendicular offset
+    // The offset is largest in the middle and diminishes at the ends
+    const offsetFactor = Math.sin(ratio * Math.PI) * offsetScale;
+    
+    const controlLat = startLat + directVectorLat * ratio + normPerpVectorLat * offsetFactor;
+    const controlLng = startLng + directVectorLng * ratio + normPerpVectorLng * offsetFactor;
+    
+    // Add some variation to each control point
+    const variationSeed = (controlLat * 1000 + controlLng) * i;
+    const latVariation = Math.sin(variationSeed) * 0.002 * complexity; // Increases with complexity
+    const lngVariation = Math.cos(variationSeed) * 0.002 * complexity;
+    
+    controlPoints.push([controlLat + latVariation, controlLng + lngVariation]);
+  }
+  
+  // End control point
+  controlPoints.push([endLat, endLng]);
+  
+  // Interpolate between control points using cubic splines
+  for (let i = 0; i < controlPoints.length - 1; i++) {
+    const [p0Lat, p0Lng] = i > 0 ? controlPoints[i - 1] : controlPoints[i];
+    const [p1Lat, p1Lng] = controlPoints[i];
+    const [p2Lat, p2Lng] = controlPoints[i + 1];
+    const [p3Lat, p3Lng] = i < controlPoints.length - 2 ? controlPoints[i + 2] : controlPoints[i + 1];
+    
+    const segmentPoints = Math.max(2, Math.floor(pointCount / (controlPoints.length - 1)));
+    
+    // For the first segment, we've already added the start point
+    const startSegmentIndex = i === 0 ? 1 : 0;
+    
+    for (let j = startSegmentIndex; j <= segmentPoints; j++) {
+      const t = j / segmentPoints;
+      
+      // Cubic interpolation (Catmull-Rom spline)
+      const t2 = t * t;
+      const t3 = t2 * t;
+      
+      const lat = 0.5 * (
+        (2 * p1Lat) +
+        (-p0Lat + p2Lat) * t +
+        (2 * p0Lat - 5 * p1Lat + 4 * p2Lat - p3Lat) * t2 +
+        (-p0Lat + 3 * p1Lat - 3 * p2Lat + p3Lat) * t3
+      );
+      
+      const lng = 0.5 * (
+        (2 * p1Lng) +
+        (-p0Lng + p2Lng) * t +
+        (2 * p0Lng - 5 * p1Lng + 4 * p2Lng - p3Lng) * t2 +
+        (-p0Lng + 3 * p1Lng - 3 * p2Lng + p3Lng) * t3
+      );
+      
+      // Don't add the end point for internal segments (it'll be added as the start of the next segment)
+      if (i < controlPoints.length - 2 && j === segmentPoints) continue;
+      
+      points.push([lat, lng]);
+    }
+  }
+  
+  return points;
+}
+
+/**
+ * Calculate a camera animation path between two map views
+ * 
+ * @param startLat Starting center latitude
+ * @param startLng Starting center longitude 
+ * @param startZoom Starting zoom level
+ * @param endLat Ending center latitude
+ * @param endLng Ending center longitude
+ * @param endZoom Ending zoom level
+ * @param steps Number of animation steps
+ * @returns Array of camera positions for the animation
+ */
+export function calculateCameraPath(
+  startLat: number,
+  startLng: number,
+  startZoom: number,
+  endLat: number,
+  endLng: number,
+  endZoom: number,
+  steps: number = 30
+): Array<{ center: [number, number], zoom: number }> {
+  const path: Array<{ center: [number, number], zoom: number }> = [];
+  
+  // Use easing function for smoother animation
+  // This creates an ease-in-out effect
+  const easeInOut = (t: number): number => {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  };
+  
+  for (let i = 0; i <= steps; i++) {
+    const ratio = i / steps;
+    const easedRatio = easeInOut(ratio);
+    
+    // Interpolate position
+    const lat = startLat + (endLat - startLat) * easedRatio;
+    const lng = startLng + (endLng - startLng) * easedRatio;
+    
+    // Zoom changes are special - we want to zoom out first, then move, then zoom in
+    // This makes the animation feel more natural
+    let zoom;
+    if (startZoom < endZoom) {
+      // Zooming in - zoom out slightly first, then zoom in more at the end
+      if (ratio < 0.3) {
+        zoom = startZoom - (startZoom * 0.05) * (ratio / 0.3);
+      } else {
+        const zoomRatio = (ratio - 0.3) / 0.7;
+        zoom = (startZoom - (startZoom * 0.05)) + (endZoom - (startZoom - (startZoom * 0.05))) * easeInOut(zoomRatio);
+      }
+    } else if (startZoom > endZoom) {
+      // Zooming out - just gradually zoom out
+      zoom = startZoom + (endZoom - startZoom) * easedRatio;
+    } else {
+      // Same zoom level - no change
+      zoom = startZoom;
+    }
+    
+    path.push({
+      center: [lat, lng],
+      zoom: zoom
+    });
+  }
+  
+  return path;
+}
+
+/**
+ * Generate intermediate route animation steps for progressively revealing a route
+ * 
+ * @param route The complete route as an array of coordinate points
+ * @param steps Number of animation steps to generate
+ * @returns Array of partial routes for each animation step
+ */
+export function generateRouteAnimationSteps(
+  route: Array<[number, number]>,
+  steps: number = 30
+): Array<Array<[number, number]>> {
+  const animationSteps: Array<Array<[number, number]>> = [];
+  
+  if (route.length <= 1) {
+    return Array(steps).fill(route);
+  }
+  
+  for (let i = 0; i <= steps; i++) {
+    const ratio = i / steps;
+    const pointIndex = Math.max(1, Math.min(route.length - 1, Math.floor(ratio * route.length)));
+    
+    // Include all points up to the current index
+    const partialRoute = route.slice(0, pointIndex + 1);
+    animationSteps.push(partialRoute);
+  }
+  
+  return animationSteps;
+}
+
+/**
+ * Calculate a bounding box that contains all points in a route
+ * 
+ * @param route Array of coordinate points
+ * @param padding Padding to add around the bounding box (in degrees)
+ * @returns Object with bounding box coordinates
+ */
+export function getRouteBounds(
+  route: Array<[number, number]>,
+  padding: number = 0.01
+): { minLat: number, maxLat: number, minLng: number, maxLng: number } {
+  if (route.length === 0) {
+    throw new Error('Route cannot be empty');
+  }
+  
+  let minLat = route[0][0];
+  let maxLat = route[0][0];
+  let minLng = route[0][1];
+  let maxLng = route[0][1];
+  
+  route.forEach(([lat, lng]) => {
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+  });
+  
+  return {
+    minLat: minLat - padding,
+    maxLat: maxLat + padding,
+    minLng: minLng - padding,
+    maxLng: maxLng + padding
+  };
+}

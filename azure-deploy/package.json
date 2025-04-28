@@ -1,26 +1,21 @@
 {
   "name": "bookmywhip-azure-functions",
   "version": "1.0.0",
-  "description": "Azure Functions for the BookMyWhip ride-hailing platform",
+  "description": "Azure Functions for BookMyWhip mobile integration",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "build:production": "npm run prestart && npm prune --production",
-    "watch": "tsc --watch",
-    "prestart": "npm run build && func extensions install",
-    "start:host": "func start",
-    "start": "npm run start:host",
-    "test": "echo \"No tests yet...\"",
-    "package": "npm run build && cd .. && zip -r app.zip ./azure-deploy/*"
+    "package": "./build-and-package.sh",
+    "deploy-apim": "./deploy-apim.sh"
   },
   "dependencies": {
-    "@azure/functions": "^3.0.0",
-    "@azure/identity": "^2.0.1",
-    "@azure/arm-apimanagement": "^8.1.0",
-    "@neondatabase/serverless": "^0.1.5"
+    "@azure/functions": "^4.0.0",
+    "@azure/identity": "^3.2.1",
+    "pg": "^8.11.1"
   },
   "devDependencies": {
-    "@azure/functions": "^3.0.0",
-    "@types/node": "^16.x",
-    "typescript": "^4.0.0"
+    "@types/node": "^18.15.11",
+    "@types/pg": "^8.10.2",
+    "typescript": "^5.0.4"
   }
 }
