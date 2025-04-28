@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DEFAULT_MAP_CENTER } from '@/lib/constants';
 import EnhancedMapDisplay from '@/components/maps/EnhancedMapDisplay';
 import { Info, Car, MapPin, Navigation, Check } from 'lucide-react';
+import { Link } from 'wouter';
 
 export default function RoutePreviewDemo() {
   const { toast } = useToast();
@@ -158,10 +159,19 @@ export default function RoutePreviewDemo() {
 
   return (
     <div className="container py-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-gradient">Animated Route Preview</h1>
-      <p className="text-lg text-muted-foreground mb-6">
-        Experience smooth map transitions and animated route displays for an engaging ride preview experience.
-      </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gradient">Animated Route Preview</h1>
+          <p className="text-lg text-muted-foreground mb-6">
+            Experience smooth map transitions and animated route displays for an engaging ride preview experience.
+          </p>
+        </div>
+        <Button variant="outline" asChild className="mt-2">
+          <Link href="/demo">
+            Back to Demos
+          </Link>
+        </Button>
+      </div>
       
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">

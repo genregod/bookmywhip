@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'wouter';
 
 export default function DemoPage() {
   const { toast } = useToast();
@@ -71,6 +72,15 @@ export default function DemoPage() {
           <p className="text-muted-foreground mt-2">
             This page demonstrates the animated ride status components for BookMyWhip.
           </p>
+        </div>
+        
+        {/* Link to Route Preview Demo */}
+        <div className="mb-6 flex">
+          <Button variant="outline" asChild>
+            <Link href="/route-preview-demo">
+              Go to Route Preview Demo
+            </Link>
+          </Button>
         </div>
         
         <Tabs defaultValue="progress">
