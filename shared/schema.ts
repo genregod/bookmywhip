@@ -58,6 +58,19 @@ export const users = pgTable('users', {
   identityDocuments: json('identity_documents'),
   identityVerificationStatus: text('identity_verification_status').default('pending'),
   
+  // Driver background check fields
+  checkrCandidateId: text('checkr_candidate_id'),
+  backgroundCheckStatus: text('background_check_status').default('not_started'),
+  backgroundCheckReportId: text('background_check_report_id'),
+  backgroundCheckCompletedAt: timestamp('background_check_completed_at'),
+  backgroundCheckInvitationId: text('background_check_invitation_id'),
+  backgroundCheckInvitationUrl: text('background_check_invitation_url'),
+  driverLicenseNumber: text('driver_license_number'),
+  driverLicenseState: text('driver_license_state'),
+  driverLicenseExpiry: timestamp('driver_license_expiry'),
+  driverOnboardingStep: integer('driver_onboarding_step').default(1),
+  isDriverApproved: boolean('is_driver_approved').default(false),
+  
   resetPasswordToken: text('reset_password_token'),
   resetPasswordExpiry: timestamp('reset_password_expiry'),
 });
