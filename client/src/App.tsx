@@ -27,6 +27,7 @@ import RealTimeTrackingDemo from "@/pages/real-time-tracking-demo";
 import AudioPreferencesPage from "@/pages/audio-preferences";
 import RideSoundtrackPage from "@/pages/ride-soundtrack";
 import SoundtrackDemoPage from "@/pages/soundtrack-demo";
+import DriverOnboarding from "@/pages/driver-onboarding";
 
 import { useAuth } from "@/hooks/use-auth";
 import LoadingIndicator from "@/components/shared/LoadingIndicator";
@@ -121,6 +122,7 @@ function Router() {
       <Route path="/admin" component={(props: any) => <ProtectedRoute component={Admin} adminOnly={true} {...props} />} />
       <Route path="/audio-preferences" component={(props: any) => <ProtectedRoute component={AudioPreferencesPage} {...props} />} />
       <Route path="/ride-soundtrack" component={(props: any) => <ProtectedRoute component={RideSoundtrackPage} {...props} />} />
+      <Route path="/driver-onboarding" component={(props: any) => <ProtectedRoute component={DriverOnboarding} {...props} />} />
       <Route path="/demo" component={Demo} />
       <Route path="/socket-demo" component={SocketDemo} />
       <Route path="/waze-demo" component={WazeDemoPage} />

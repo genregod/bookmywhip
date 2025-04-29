@@ -21,6 +21,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { verifyPassword } from "./auth";
 import * as azureApiManagementController from './routes/azureApiManagement';
+import driverOnboardingRoutes from './routes/driverOnboarding';
 import { webSocketService } from './services/webSocketService';
 import { 
   STRIPE_SECRET_KEY,
@@ -1644,6 +1645,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to send notification' });
     }
   });
+
+  // Register driver onboarding routes
+  app.use('/api/driver-onboarding', driverOnboardingRoutes);
 
   return httpServer;
 }
